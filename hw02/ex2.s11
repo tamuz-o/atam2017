@@ -1,0 +1,100 @@
+. = torg + 1000
+
+main:           mov #main, sp
+                jsr pc, runString
+endMain:        halt
+
+actTypo:   ;go to the type of typo that you are checking now.
+    cmp @#type, #1   ;letter got changed.
+    beq type1
+    cmp @#type, #2   ;letter got deleted.
+    beq type2
+    cmp @#type, #3   ;letter added by mistake.
+    beq type3
+type1: 
+    cmpb (r2)+, (r3)+   ;move to the next letter in the string and in the term.
+    rts pc
+type2:
+    tstb (r3)+   ;move to the next letter in the term.
+    rts pc
+type3:
+    tstb (r2)+   ;move to the next letter in the string.  
+    rts pc
+    
+chkTypo:   ;check if we got a typo before and what types of possible typos we checked in this one.   
+    cmp @#typos, #1   ;check if we already had a typo.    
+    bne callAct
+    mov #0, @#typos   ;reset typos. 
+    add #1, @#type   ;change the type of typo the string could have. 
+    cmp @#type, #4   ;check if we checked every possible typo in the current combination.
+    bne callAct
+    mov #1, @#type   ;reset type.
+    mov #0, r4   ;the current string is not a prefix of the current term.
+    rts pc
+callAct:
+    add #1, @#typos   ;increment the number of typos in the string by one.
+    jsr pc, actTypo   ;advance the letters of the string and the term accourding to the type of typo we assume the string has.
+    
+chkLetters:   ;comparing the current letters of the string and the term. 
+    cmpb (r2), (r3)
+    bne callChk   ;not equal.
+    cmpb (r2)+, (r3)+   ;advance the letters.
+    rts pc
+callChk:   
+    jsr pc, chkTypo
+    rts pc
+    
+runLetters:
+    cmpb #'@, (r2)
+    beq success
+    cmpb #'@, (r3)
+    beq endletters
+    jsr pc, chkLetters
+    cmp r4, #1
+    bne endletters
+    jsr pc, runLetters
+success: 
+    add #1, @#curScore
+endletters:
+    rts pc
+
+; For a given string at (r0), calculate its score by testing it against all terms
+; to see if it's a prefix.
+; Inputs:   (r0) = Address of string.
+; Effects:  curScore <- Score of tested string (i.e. for how many terms it's a prefix).
+; Using:    (r1) = Iterates over addresses of terms.
+runDict:        mov dict, r1        ; Initialize (r1) = term1
+                mov dict_len, termsRemain   ; Init counter: how many terms to test.
+termLoop:       movb (r0), r2   ; r2 <- address of first letter of string
+                movb (r1), r3   ; r3 <- address of first letter of term
+                jsr pc, runLetters
+                sub #1, termsRemain
+                bne termLoop
+                rts pc
+
+; For a given string at (r0), tests if that string has a higher score then the
+; current best string (i.e. it's a prefix to more terms.) If so: update
+; max_score and max_string accordingly.
+; Inputs:   (r0) = address of string to test
+; Effects:  max_score <- Score of current string (if higher than existing high_score).
+;           max_string <- Address of beginning of current string (if high scorer).
+preNum:         jsr pc, runDict     ; Test all terms against current string
+                cmp curScore, max_score
+                ble endPreNum
+                mov curScore, max_score  ; if curScore is higher, update max_score and max_string
+                mov (r0), max_string
+endPreNum:      mov #0, curScore
+                rts pc
+
+; Iterates over all strings. For each string, test as prefix for each term.
+runString:      mov strings, r0     ; Initialize (r0) = str1 = address of 1st word
+strLoop:        jsr pc, preNum
+                inc r0
+                sub #1, strings_len
+                bne strLoop
+                rts pc
+
+termsRemain:    .word 0     ; How many more terms need to be checked agains current string.
+curScore: .word 0
+typos: .word 1
+type : .word 1

@@ -29,7 +29,7 @@ chkTypo:   ;check if we got a typo before and what types of possible typos we ch
     cmp @#type, #4   ;check if we checked every possible typo in the current combination.
     bne callAct
     mov #1, @#type   ;reset type.
-    mov #0, r4   ;the current string is not a prefix of the current term.
+    mov #1, r4   ;the current string is not a prefix of the current term.
     rts pc
 callAct:
     add #1, @#typos   ;increment the number of typos in the string by one.
@@ -51,11 +51,14 @@ runLetters:
     beq endletters
     jsr pc, chkLetters
     cmp r4, #1
-    bne endletters
-    jsr pc, runLetters
+    beq endletters
+    br runLetters
 success: 
     add #1, @#curScore
 endletters:
+    mov #0, r4
+    mov #0, typos
+    mov #1, type
     rts pc
 
 ; For a given string at (r0), calculate its score by testing it against all terms

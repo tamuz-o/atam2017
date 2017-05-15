@@ -63,11 +63,12 @@ endletters:
 ; Inputs:   (r0) = Address of string.
 ; Effects:  curScore <- Score of tested string (i.e. for how many terms it's a prefix).
 ; Using:    (r1) = Iterates over addresses of terms.
-runDict:        mov dict, r1        ; Initialize (r1) = term1
+runDict:        mov #dict, r1        ; Initialize (r1) = term1
                 mov dict_len, termsRemain   ; Init counter: how many terms to test.
-termLoop:       movb (r0), r2   ; r2 <- address of first letter of string
-                movb (r1), r3   ; r3 <- address of first letter of term
+termLoop:       mov (r0), r2   ; r2 <- address of first letter of string
+                mov (r1), r3   ; r3 <- address of first letter of term
                 jsr pc, runLetters
+                add #2, r1
                 sub #1, termsRemain
                 bne termLoop
                 rts pc
@@ -87,9 +88,9 @@ endPreNum:      mov #0, curScore
                 rts pc
 
 ; Iterates over all strings. For each string, test as prefix for each term.
-runString:      mov strings, r0     ; Initialize (r0) = str1 = address of 1st word
+runString:      mov #strings, r0     ; Initialize (r0) = str1 = address of 1st word
 strLoop:        jsr pc, preNum
-                inc r0
+                add #2, r0
                 sub #1, strings_len
                 bne strLoop
                 rts pc

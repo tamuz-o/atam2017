@@ -4,6 +4,11 @@ main:           mov #main, sp
                 jsr pc, runString
 endMain:        halt
 
+strStart:   ;set (r2)=beginning of string, (r3)=beginning of term
+    mov (r0), r2   ; r2 <- address of first letter of string
+    mov (r1), r3   ; r3 <- address of first letter of term
+    rts pc
+
 actTypo:   ;go to the type of typo that you are checking now.
     cmp @#type, #1   ;letter got changed.
     beq type1
@@ -25,12 +30,14 @@ chkTypo:   ;check if we got a typo before and what types of possible typos we ch
     cmp @#typos, #1   ;check if we already had a typo.    
     bne callAct
     mov #0, @#typos   ;reset typos. 
+    jsr pc, strStart   ;set r2 & r3 to beginning of string & term
     add #1, @#type   ;change the type of typo the string could have. 
     cmp @#type, #4   ;check if we checked every possible typo in the current combination.
-    bne callAct
-    mov #1, @#type   ;reset type.
-    mov #0, r4   ;the current string is not a prefix of the current term.
+    beq failure
     rts pc
+failure:             ;the current string is not a prefix of the current term.
+    mov #1, @#type   ;reset type.
+    mov #1, r4       ;flag failure.
 callAct:
     add #1, @#typos   ;increment the number of typos in the string by one.
     jsr pc, actTypo   ;advance the letters of the string and the term accourding to the type of typo we assume the string has.
@@ -51,11 +58,14 @@ runLetters:
     beq endletters
     jsr pc, chkLetters
     cmp r4, #1
-    bne endletters
-    jsr pc, runLetters
+    beq endletters
+    br runLetters
 success: 
     add #1, @#curScore
 endletters:
+    mov #0, r4
+    mov #0, typos
+    mov #1, type
     rts pc
 
 ; For a given string at (r0), calculate its score by testing it against all terms
@@ -63,11 +73,11 @@ endletters:
 ; Inputs:   (r0) = Address of string.
 ; Effects:  curScore <- Score of tested string (i.e. for how many terms it's a prefix).
 ; Using:    (r1) = Iterates over addresses of terms.
-runDict:        mov dict, r1        ; Initialize (r1) = term1
+runDict:        mov #dict, r1        ; Initialize (r1) = term1
                 mov dict_len, termsRemain   ; Init counter: how many terms to test.
-termLoop:       movb (r0), r2   ; r2 <- address of first letter of string
-                movb (r1), r3   ; r3 <- address of first letter of term
+termLoop:       jsr pc, strStart    ; point r2 & r3 to beginning of string & term
                 jsr pc, runLetters
+                add #2, r1
                 sub #1, termsRemain
                 bne termLoop
                 rts pc
@@ -87,14 +97,14 @@ endPreNum:      mov #0, curScore
                 rts pc
 
 ; Iterates over all strings. For each string, test as prefix for each term.
-runString:      mov strings, r0     ; Initialize (r0) = str1 = address of 1st word
+runString:      mov #strings, r0     ; Initialize (r0) = str1 = address of 1st word
 strLoop:        jsr pc, preNum
-                inc r0
+                add #2, r0
                 sub #1, strings_len
                 bne strLoop
                 rts pc
 
 termsRemain:    .word 0     ; How many more terms need to be checked agains current string.
 curScore: .word 0
-typos: .word 1
+typos: .word 0
 type : .word 1

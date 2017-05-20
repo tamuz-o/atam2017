@@ -9,7 +9,7 @@ strStart:   ;set (r2)=beginning of string, (r3)=beginning of term
     mov (r1), r3   ; r3 <- address of first letter of term
     rts pc
 
-actTypo:   ;go to the type of typo that you are checking now.
+actTypo:    ;check what kind of typo we're cheking right now and act accordingly
     cmp @#type, #1   ;letter got changed.
     beq type1
     cmp @#type, #2   ;letter got deleted.
@@ -26,38 +26,38 @@ type3:
     tstb (r2)+   ;move to the next letter in the string.  
     rts pc
     
-chkTypo:   ;check if we got a typo before and what types of possible typos we checked in this one.   
-    cmp @#typos, #1   ;check if we already had a typo.    
-    bne callAct
-    mov #0, @#typos   ;reset typos. 
-    jsr pc, strStart   ;set r2 & r3 to beginning of string & term
-    add #1, @#type   ;change the type of typo the string could have. 
-    cmp @#type, #4   ;check if we checked every possible typo in the current combination.
+chkTypo:   ;check if we got a typo before and what types of possible typos we checked in this string.
+    cmp @#typos, #1     ;check if we already encountered a typo of this kind.
+    bne callAct         ;if not then continue testing the term...
+    mov #0, @#typos     ;...otherwise reset the typos counter
+    jsr pc, strStart    ;set r2 & r3 to beginning of current string & term
+    add #1, @#type      ;change the type of typo the string could have. 
+    cmp @#type, #4      ;if we already checked all 3 types of typos then go to failure.
     beq failure
     rts pc
-failure:             ;the current string is not a prefix of the current term.
-    mov #1, @#type   ;reset type.
-    mov #1, r4       ;flag failure.
-callAct:
-    add #1, @#typos   ;increment the number of typos in the string by one.
-    jsr pc, actTypo   ;advance the letters of the string and the term accourding to the type of typo we assume the string has.
+failure:                ;the current string is not a prefix of the current term.
+    mov #1, @#type      ;reset type.
+    mov #1, r4          ;flag failure.
+callAct:                ;program found a typo and keeps testing the string against the term.
+    add #1, @#typos     ;increment the number of typos in the string by one.
+    jsr pc, actTypo     ;advance the letters of the string and the term accourding to the type of typo we assume the string has.
     
 chkLetters:   ;comparing the current letters of the string and the term. 
     cmpb (r2), (r3)
     bne callChk   ;not equal.
-    cmpb (r2)+, (r3)+   ;advance the letters.
+    cmpb (r2)+, (r3)+   ;go to testing next letter.
     rts pc
 callChk:   
     jsr pc, chkTypo
     rts pc
     
 runLetters:
-    cmpb #'@, (r2)
+    cmpb #'@, (r2)      ;reached end of string (success)
     beq success
-    cmpb #'@, (r3)
+    cmpb #'@, (r3)      ;reached end of term (failure)
     beq endletters
-    jsr pc, chkLetters
-    cmp r4, #1
+    jsr pc, chkLetters  ;compare current letter between string & term.
+    cmp r4, #1          ;if we encountered more than 1 typo (failure).
     beq endletters
     br runLetters
 success: 
@@ -73,14 +73,16 @@ endletters:
 ; Inputs:   (r0) = Address of string.
 ; Effects:  curScore <- Score of tested string (i.e. for how many terms it's a prefix).
 ; Using:    (r1) = Iterates over addresses of terms.
-runDict:        mov #dict, r1        ; Initialize (r1) = term1
-                mov dict_len, termsRemain   ; Init counter: how many terms to test.
-termLoop:       jsr pc, strStart    ; point r2 & r3 to beginning of string & term
-                jsr pc, runLetters
-                add #2, r1
-                sub #1, termsRemain
-                bne termLoop
-                rts pc
+runDict:
+    mov #dict, r1        ; Initialize (r1) = term1
+    mov dict_len, termsRemain   ; Init counter: how many terms to test.
+termLoop:
+    jsr pc, strStart    ; point r2 & r3 to beginning of string & term
+    jsr pc, runLetters
+    add #2, r1
+    sub #1, termsRemain
+    bne termLoop
+    rts pc
 
 ; For a given string at (r0), tests if that string has a higher score then the
 ; current best string (i.e. it's a prefix to more terms.) If so: update
@@ -88,32 +90,38 @@ termLoop:       jsr pc, strStart    ; point r2 & r3 to beginning of string & ter
 ; Inputs:   (r0) = address of string to test
 ; Effects:  max_score <- Score of current string (if higher than existing high_score).
 ;           max_string <- Address of beginning of current string (if high scorer).
-preNum:         jsr pc, runDict     ; Test all terms against current string
-                cmp curScore, max_score
-                ble endPreNum
-                mov curScore, max_score  ; if curScore is higher, update max_score and max_string
-                mov (r0), max_string
-endPreNum:      mov #0, curScore
-                rts pc
+preNum:
+    jsr pc, runDict     ; Test all terms against current string
+    cmp curScore, max_score
+    ble endPreNum
+    mov curScore, max_score  ; if curScore is higher, update max_score and max_string
+    mov (r0), max_string
+endPreNum:
+    mov #0, curScore
+    rts pc
 
 ; Iterates over all strings. For each string, test as prefix for each term.
-runString:      mov #strings, r0     ; Initialize (r0) = str1 = address of 1st word
-                tst dict_len         ; If dict empty then return 1st word with score=0
-                beq dictEmpty
-                mov strings_len, stringsRemain
-strLoop:        jsr pc, preNum
-                add #2, r0
-                sub #1, stringsRemain
-                bne strLoop
-                rts pc
-dictEmpty:      mov strings, max_string
-                rts pc
+runString:
+    mov #strings, r0     ; Initialize (r0) = str1 = address of 1st word
+    tst dict_len         ; If dict empty then return 1st word with score=0
+    beq dictEmpty
+    mov strings_len, stringsRemain
+strLoop:
+    jsr pc, preNum      ;calculate score for current string.
+    add #2, r0          ;go to next string.
+    sub #1, stringsRemain
+    bne strLoop         ;re-iterate (unless we exhausted all strings).
+    rts pc
+dictEmpty:
+    mov strings, max_string
+    rts pc
 
-stringsRemain:  .word 0     ; How many strings left to test
-termsRemain:    .word 0     ; How many more terms need to be checked agains current string.
+stringsRemain:  .word 0 ;how many strings left to test
+termsRemain:    .word 0 ;how many more terms need to be checked agains current string.
 curScore: .word 0
-typos: .word 0
-type : .word 1
+typos: .word 0          ;how many typos we encountered (more than 1 means failure.)
+type : .word 1          ;which kind of typo we're testing right now: 1 = swap letters,
+                        ;2 = missed letter, 3 = added letter
 .=torg + 5000
 
 strings_len:	.word 	2

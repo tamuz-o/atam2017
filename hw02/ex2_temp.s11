@@ -98,12 +98,14 @@ endPreNum:      mov #0, curScore
 
 ; Iterates over all strings. For each string, test as prefix for each term.
 runString:      mov #strings, r0     ; Initialize (r0) = str1 = address of 1st word
+                mov strings_len, stringsRemain
 strLoop:        jsr pc, preNum
                 add #2, r0
-                sub #1, strings_len
+                sub #1, stringsRemain
                 bne strLoop
                 rts pc
 
+stringsRemain:  .word 0     ; How many strings left to test
 termsRemain:    .word 0     ; How many more terms need to be checked agains current string.
 curScore: .word 0
 typos: .word 0

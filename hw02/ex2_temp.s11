@@ -98,11 +98,15 @@ endPreNum:      mov #0, curScore
 
 ; Iterates over all strings. For each string, test as prefix for each term.
 runString:      mov #strings, r0     ; Initialize (r0) = str1 = address of 1st word
+                tst dict_len         ; If dict empty then return 1st word with score=0
+                beq dictEmpty
                 mov strings_len, stringsRemain
 strLoop:        jsr pc, preNum
                 add #2, r0
                 sub #1, stringsRemain
                 bne strLoop
+                rts pc
+dictEmpty:      mov strings, max_string
                 rts pc
 
 stringsRemain:  .word 0     ; How many strings left to test

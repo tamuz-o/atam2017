@@ -54,8 +54,8 @@ callChk:
 runLetters:
     cmpb #'@, (r2)      ;reached end of string (success)
     beq success
-    cmpb #'@, (r3)      ;reached end of term (failure)
-    beq endletters
+    cmpb #'@, (r3)      ;reached end of term (probably failure)
+    beq endTerm
     jsr pc, chkLetters  ;compare current letter between string & term.
     cmp r4, #1          ;if we encountered more than 1 typo (failure).
     beq endletters
@@ -67,6 +67,11 @@ endletters:
     mov #0, typos
     mov #1, type
     rts pc
+endTerm:
+    tst typos           ;if we already had a typo before than fail
+    bne endletters
+    cmpb #'@, 1(r2)     ;if its the last char in string then success (single typo)
+    beq success
 
 ; For a given string at (r0), calculate its score by testing it against all terms
 ; to see if it's a prefix.

@@ -127,6 +127,7 @@ curScore: .word 0
 typos: .word 0          ;how many typos we encountered (more than 1 means failure.)
 type : .word 1          ;which kind of typo we're testing right now: 1 = swap letters,
                         ;2 = missed letter, 3 = added letter
+
 .=torg + 5000
 
 strings_len:	.word 	2

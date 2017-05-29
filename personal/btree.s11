@@ -1,0 +1,23 @@
+. = torg + 1000
+
+main:
+    mov pc, sp
+    tst -(sp)
+
+
+
+. = torg + 5000
+;______4_______
+; _2_     _8_
+; 1 9    7   5
+;   6    6
+
+root:   .word 4, n01, n05
+n01:    .word 2, n02, n03
+n02:    .word 1, 0, 0
+n03:    .word 9, n04, 0
+n04:    .word 6, 0, 0
+n05:    .word 8, n06, n08
+n06:    .word 7, n07, 0
+n07:    .word 6, 0, 0
+n08:    .word 5, 0, 0

@@ -51,7 +51,7 @@ callChk:
     jsr pc, chkTypo
     rts pc
     
-runLetters:
+runLetters:     ;recursively iterate over chars in string & term until reaching the end of either one or encounter 2 typos
     cmpb #'@, (r2)      ;reached end of string (success)
     beq success
     cmpb #'@, (r3)      ;reached end of term (probably failure)
@@ -125,6 +125,6 @@ stringsRemain:  .word 0 ;how many strings left to test
 termsRemain:    .word 0 ;how many more terms need to be checked agains current string.
 curScore: .word 0
 typos: .word 0          ;how many typos we encountered (more than 1 means failure.)
-type : .word 1          ;which kind of typo we're testing right now: 1 = swap letters,
+type : .word 1          ;which kind of typo we're testing right now: 1 = letter changed,
                         ;2 = missed letter, 3 = added letter
 

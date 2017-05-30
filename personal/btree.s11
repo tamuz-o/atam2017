@@ -5,8 +5,10 @@ main:
     tst -(sp)
 
     mov #root, -(sp)
-    tst (-sp)
+    tst -(sp)
     jsr pc, treeMax
+    mov (sp)+, r1       ;r1 <- max
+    tst (sp)+
     halt
 
 
@@ -19,24 +21,24 @@ treeMax:
         mov #0, 2(sp)
         rts pc
 notEmpty:
-    mov @4(sp), -(sp)   ;store node's value as tempMax
-    mov 4(sp), r0       ;r0 <- node's address
-    mov 2(r0), -(sp)    ;push left-son's address
-    tst -(sp)           ;allocate space for return value
+    mov @4(sp), -(sp)   ;push: stack= tempMax, retAdrs, output, nodeAdrs
+    mov 6(sp), r0       ;r0 <- nodeAdrs
+    mov 2(r0), -(sp)    ;push: stack= lsAdrs, tempMax, retAdrs, output, nodeAdrs
+    tst -(sp)           ;push: stack= <lsMax>, lsAdrs, tempMax, retAdrs, output, nodeAdrs
     jsr pc, treeMax     ;treeMax(retValue, leftSonAddress)
     cmp (sp), 4(sp)
-    ble lsNotMax        ;if left son's max is greater then store it in tempMax
-        mov (sp), 4(sp)
+    ble lsNotMax        ;if (lsMax > tempMax)
+        mov (sp), 4(sp) ;   tempMax <- lsMax
 lsNotMax:
-    mov 4(r0), 2(sp)
+    mov 4(r0), 2(sp)    ;edit stack: lsAdrs <- rsAdrs
     jsr pc, treeMax     ;treeMax(retValue, rightSonAddress)
     cmp (sp), 4(sp)
-    ble rsNotMax        ;if right son's max is greater then store ti in tempMax
-        mov (sp), 4(sp)
+    ble rsNotMax        ;if (rsMax > tempMax)
+        mov (sp), 4(sp) ;   tempMax <- rsMax
 rsNotMax:
     tst (sp)+           ;pop sonMax
-    tst (sp)+           ;pop sonAdrs
-    mov (sp)+, 4(sp)    ;pop tempMax into max (output)
+    tst (sp)+           ;pop: stack= tempMax, retAdrs, output, nodeAdrs
+    mov (sp)+, 4(sp)    ;pop tempMax -> output
     rts pc
 
 

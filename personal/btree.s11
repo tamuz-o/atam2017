@@ -3,7 +3,33 @@
 main:
     mov pc, sp
     tst -(sp)
+    mov #12, -(sp)
+    mov #33, -(sp)
+    tst -(sp)
+    jsr pc, sum
+    mov (sp), r0
+    tst (sp)+
+    tst (sp)+
+    halt
 
+;input stack head = return-adrs -> result(empty) -> n1 -> n2 -> ...
+sum:
+    mov 4(sp), 2(sp)
+    add 6(sp), 2(sp)
+    rts pc
+
+;Gets a tree node and returns the max integer stored in the subtree.
+;input stack head = max (output) -> nodeAddress -> {stack}
+;usage stack head -> tempMax -> max (output) -> nodeAddress (input) -> {stack}
+treeMax:
+    mov @2(sp), -(sp)       ;store node's value as tempMax
+
+    jsr pc, treeMax
+    cmp (sp), 2(sp)
+    blt notBigger
+    mov (sp), 2(sp)
+notBigger:
+    jsr pc, treeMax
 
 
 . = torg + 5000

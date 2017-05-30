@@ -3,33 +3,41 @@
 main:
     mov pc, sp
     tst -(sp)
-    mov #12, -(sp)
-    mov #33, -(sp)
-    tst -(sp)
-    jsr pc, sum
-    mov (sp), r0
-    tst (sp)+
-    tst (sp)+
+
+    mov #root, -(sp)
+    tst (-sp)
+    jsr pc, treeMax
     halt
 
-;input stack head = return-adrs -> result(empty) -> n1 -> n2 -> ...
-sum:
-    mov 4(sp), 2(sp)
-    add 6(sp), 2(sp)
-    rts pc
 
 ;Gets a tree node and returns the max integer stored in the subtree.
-;input stack head = max (output) -> nodeAddress -> {stack}
-;usage stack head -> tempMax -> max (output) -> nodeAddress (input) -> {stack}
+;input stack = ret-adrs -> max (output) -> nodeAdrs
+;usage stack = sonMax -> sonAdrs -> tempMax -> retAdrs -> max (output) -> nodeAdrs
 treeMax:
-    mov @2(sp), -(sp)       ;store node's value as tempMax
-
-    jsr pc, treeMax
-    cmp (sp), 2(sp)
-    blt notBigger
-    mov (sp), 2(sp)
-notBigger:
-    jsr pc, treeMax
+    tst 4(sp)
+    bne notEmpty        ;if nodeAddress=NIL then return 0.
+        mov #0, 2(sp)
+        rts pc
+notEmpty:
+    mov @4(sp), -(sp)   ;store node's value as tempMax
+    mov 4(sp), r0       ;r0 <- node's address
+    mov 2(r0), -(sp)    ;push left-son's address
+    tst -(sp)           ;allocate space for return value
+    jsr pc, treeMax     ;treeMax(retValue, leftSonAddress)
+    cmp (sp), 4(sp)
+    ble lsNotMax        ;if left son's max is greater then store it in tempMax
+        mov (sp), 4(sp)
+lsNotMax:
+    mov 4(r0), 2(sp)
+    jsr pc, treeMax     ;treeMax(retValue, rightSonAddress)
+    cmp (sp), 4(sp)
+    ble rsNotMax        ;if right son's max is greater then store ti in tempMax
+        mov (sp), 4(sp)
+rsNotMax:
+    tst (sp)+           ;pop sonMax
+    tst (sp)+           ;pop sonAdrs
+    mov (sp)+, 4(sp)    ;pop tempMax into max (output)
+    rts pc
 
 
 . = torg + 5000
@@ -38,12 +46,12 @@ notBigger:
 ; 1 9    7   5
 ;   6    6
 
-root:   .word 4, n01, n05
-n01:    .word 2, n02, n03
-n02:    .word 1, 0, 0
-n03:    .word 9, n04, 0
-n04:    .word 6, 0, 0
-n05:    .word 8, n06, n08
-n06:    .word 7, n07, 0
-n07:    .word 6, 0, 0
-n08:    .word 5, 0, 0
+root:   .word 4., n01, n05
+n01:    .word 2., n02, n03
+n02:    .word 1., 0, 0
+n03:    .word 9., n04, 0
+n04:    .word 6., 0, 0
+n05:    .word 8., n06, n08
+n06:    .word 7., n07, 0
+n07:    .word 6., 0, 0
+n08:    .word 5., 0, 0

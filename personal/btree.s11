@@ -22,7 +22,7 @@ treeMax:
         rts pc
 notEmpty:
     mov @4(sp), -(sp)   ;push: stack= tempMax, retAdrs, output, nodeAdrs
-    mov 6(sp), r0       ;r0 <- nodeAdrs
+    mov 6(sp), r0
     mov 2(r0), -(sp)    ;push: stack= lsAdrs, tempMax, retAdrs, output, nodeAdrs
     tst -(sp)           ;push: stack= <lsMax>, lsAdrs, tempMax, retAdrs, output, nodeAdrs
     jsr pc, treeMax     ;treeMax(retValue, leftSonAddress)
@@ -30,6 +30,7 @@ notEmpty:
     ble lsNotMax        ;if (lsMax > tempMax)
         mov (sp), 4(sp) ;   tempMax <- lsMax
 lsNotMax:
+    mov 12(sp), r0
     mov 4(r0), 2(sp)    ;edit stack: lsAdrs <- rsAdrs
     jsr pc, treeMax     ;treeMax(retValue, rightSonAddress)
     cmp (sp), 4(sp)
@@ -38,7 +39,7 @@ lsNotMax:
 rsNotMax:
     tst (sp)+           ;pop sonMax
     tst (sp)+           ;pop: stack= tempMax, retAdrs, output, nodeAdrs
-    mov (sp)+, 4(sp)    ;pop tempMax -> output
+    mov (sp)+, 2(sp)    ;pop tempMax -> output
     rts pc
 
 

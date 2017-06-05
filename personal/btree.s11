@@ -1,3 +1,7 @@
+tempMax = 4
+sonAdrs = 2
+nodeAdrs = 12
+
 . = torg + 1000
 
 main:
@@ -26,16 +30,16 @@ notEmpty:
     mov 2(r0), -(sp)    ;push: stack= lsAdrs, tempMax, retAdrs, output, nodeAdrs
     tst -(sp)           ;push: stack= <lsMax>, lsAdrs, tempMax, retAdrs, output, nodeAdrs
     jsr pc, treeMax     ;treeMax(retValue, leftSonAddress)
-    cmp (sp), 4(sp)
+    cmp (sp), tempMax(sp)
     ble lsNotMax        ;if (lsMax > tempMax)
-        mov (sp), 4(sp) ;   tempMax <- lsMax
+        mov (sp), tempMax(sp)   ;tempMax <- lsMax
 lsNotMax:
-    mov 12(sp), r0
-    mov 4(r0), 2(sp)    ;edit stack: lsAdrs <- rsAdrs
+    mov nodeAdrs(sp), r0
+    mov 4(r0), sonAdrs(sp)  ;edit stack: lsAdrs <- rsAdrs
     jsr pc, treeMax     ;treeMax(retValue, rightSonAddress)
-    cmp (sp), 4(sp)
+    cmp (sp), tempMax(sp)
     ble rsNotMax        ;if (rsMax > tempMax)
-        mov (sp), 4(sp) ;   tempMax <- rsMax
+        mov (sp), tempMax(sp)   ;tempMax <- rsMax
 rsNotMax:
     tst (sp)+           ;pop sonMax
     tst (sp)+           ;pop: stack= tempMax, retAdrs, output, nodeAdrs

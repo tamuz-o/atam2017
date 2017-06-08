@@ -1,5 +1,14 @@
 .= torg + 1000
 
+main:
+    mov pc, sp
+    tst -(sp)
+    jsr pc, sentComp
+    halt
+
+;todo
+isPrefix:
+
 ; Test if given string is lexicographically the first n-length string.
 ;Inputs:    str [inline] = Address of string.
 ;           length [inline] = of string.
@@ -19,6 +28,8 @@ loopIsStart:
         inc r0              ;increment r0 and loop
         cmp r0, r1
         bne loopIsStart
+    cmpb (r0), '@   ;if string doesnt end with @ then return 0
+    bne endIsStart
     mov #1, 6(sp)   ;output = 1
 endIsStart:
     mov (sp)+, r1   ;exit scope
@@ -95,7 +106,7 @@ endFindEndOfWord:
     rts pc
 
 
-; Test whether all words in the given sentence are valid terms.
+; sentInDict: Test whether all words in the given sentence are valid terms.
 ;Inputs:    dict [stack] = address of array of addresses of terms.
 ;           dictLength [stack].
 ;           sent [stack] = address of sentence (string).
@@ -103,6 +114,8 @@ endFindEndOfWord:
 ;Output:    [stack] 1 iff each word in sentence matches some dictionary-term.
 ;           Note: words are sub-strings seperated by one or more instances of `delim`.
 ;Stack:     pc -> delim -> sent -> dictLength -> dict -> output (uninitialized) -> ...
+
+;LOCAL VARIABLE POSITIONS
 aWordsEqual = 0
 aDelim      = 16
 aSent       = 20
@@ -127,8 +140,8 @@ sentLoop:
         mov aDict(sp), r1  ;set r1 -> first element in dict
         mov r0, r2
         jsr pc, findEndOfWord   ;set r2 -> end of current word + 1
-        mov (r2), r3        ;r3 = Delim or @
-        mov '@, (r2)        ;if current word is followed by delimiter then replace it with @
+        movb (r2), r3        ;r3 = Delim or @
+        movb '@, (r2)        ;if current word is followed by delimiter then replace it with @
 termLoop:
             cmp r1, r4      ;if reached end of dictionary and no match was found
             beq endSentInDict
@@ -139,7 +152,7 @@ termLoop:
             tst (sp)+
             tst aWordsEqual(sp)  ;if word != term then go to next term
             bne termMismatch
-            mov r3, (r2)    ;if we changed a delimiter to @ then undo it
+            movb r3, (r2)    ;if we changed a delimiter to @ then undo it
             cmpb r3, '@     ;if word == term then:
             beq succSentInDict  ;if reached end of sentence ==> success
 gotoNextWord:                   ;otherwise, increment r0 until it passes all consecutive delimiters
@@ -155,7 +168,7 @@ termMismatch:   ;go to next term and retry
 succSentInDict:
     mov #1, aOutput(sp)
 endSentInDict:
-    mov r3, (r2)    ;if we changed a delimiter to @ then undo it
+    movb r3, (r2)    ;if we changed a delimiter to @ then undo it
     tst (sp)+
     mov (sp)+, r4   ;exit scope...
     mov (sp)+, r3
@@ -165,7 +178,92 @@ endSentInDict:
     rts pc
 
 
+; Builds a string with length MaxLen, full of Setmin. Stores it in `String`.
+;Inputs:    r0 -> beginning of string space
+;           r1 -> end of string = r0 + MaxLen
+;Effect:    String at (r0) is set as described.
+setFirstString:
+    cmp r0, r1
+    beq endSetFirstString
+    movb Setmin, (r0)+
+    br setFirstString
+endSetFirstString:
+    sub MaxLen, r0
+    rts pc
+
+; Copies content of `String` to `Output` up to the '@' sign
+copyString:
+    mov r0, -(sp)   ;enter scope...
+    mov r1, -(sp)
+    mov #String, r0
+    mov #Output, r1
+loopCopy:
+        movb (r0), (r1)+
+        cmpb (r0)+, '@
+        bne loopCopy
+    mov (sp)+, r1   ;exit scope...
+    mov (sp)+, r0
+    rts pc
+
+
+; Find the longest legal sentence of length <= `MaxLen` over given alphabet which
+; is a prefix to the given `Sent` and store it in `Output`, terminating with '@'.
+sentComp:
+    mov r0, -(sp)   ;enter scope...
+    mov r1, -(sp)
+    mov r2, -(sp)
+    mov r3, -(sp)
+    mov r5, -(sp)
+    mov MaxLen, curLength   ;set variables...
+    mov #String, r0     ;r0 -> beginning of incremental string (for calling setFirstString)
+    mov #String, r1     ;r1 -> end of string
+    add MaxLen, r1
+    jsr pc, setFirstString
+    mov #Sent, r0       ;parameters to be sent to isPrefix
+    mov X, r2
+stringLoop:
+        tst -(sp)       ;allocate return value & push parameters for sentInDict
+        mov #Dict, -(sp)
+        mov #DictLen, -(sp)
+        mov #String, -(sp)
+        movb #Delim, -(sp)
+        jsr pc, sentInDict
+        add #10, (sp)   ;pop arguments from stack
+        tst (sp)+       ;if sentence is illegal then go to next string
+        beq incString
+        mov #String, r1 ;parameter sent to isPrefix
+        jsr pc, isPrefix
+        tst r1          ;if isPrefix==True then finish
+        bne finish
+incString:
+        mov #String, -(sp)      ;parameters sent to nextString
+        mov #curLength, -(sp)
+        jsr pc, nextString
+        tst (sp)+       ;pop 1, but leave 1 stack-space for return value of isStart
+        jsr r5, isStart
+        .word #String
+        .word #curLength
+        tst -(sp)       ;if not first string then loop
+        beq stringLoop
+        mov curLength, r3   ;if we cycled back to the first string of curLength then decrement length
+        add #String, r3     ;r3 -> current end of String
+        movb '@, (r3)       ;String[curLength] = @
+        dec curLength
+        br stringLoop
+finish:
+    jsr pc, copyString  ;copy String to Output
+    mov (sp)+, r5   ;exit scope...
+    mov (sp)+, r3
+    mov (sp)+, r2
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rts pc
+
+
 ;GLOBALS
+.even
+String:     .blkw 16
+curLength:  .blkw 1
 
 .= torg + 12000
 Setmin: .byte 'A

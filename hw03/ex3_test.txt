@@ -1,0 +1,19 @@
+.= torg + 12000
+Setmin: .byte 'A
+Setmax: .byte 'C
+Delim: .byte ' ;this is a space
+.even
+Dict: .word word1, word2, word3, word4
+DictLen: .word 4
+Sent: .ascii <AB@>
+.even
+X: .word 4
+MaxLen: .word 6
+word1: .ascii <AC@>
+word2: .ascii <B@>
+word3: .ascii <C@>
+word4: .ascii <@>
+.even
+
+Output: .blkw 40
+.even

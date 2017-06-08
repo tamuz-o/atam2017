@@ -5,7 +5,25 @@
 ;           length [inline] = of string.
 ;Output:    [stack] 1 or 0.
 ;Stack:     r5 -> output (unintialized) -> ...
+;Lnk. Rgst: (0) = length, (2) = str.
 isStart:
+    mov r0, -(sp)   ;enter scope...
+    mov r1, -(sp)   ;stack = r1 -> r0 -> r5 -> output
+    mov #0, 6(sp)   ;output = 0
+    mov 2(r5), r0   ;r0 = address of string
+    mov (r5), r1    ;r1 = string length
+    add r0, r1      ;r1 = address of end of string + 1
+loopIsStart:
+        cmpb (r0), Setmin   ;if char[r0] != Setmin then return 0
+        bne endIsStart
+        inc r0              ;increment r0 and loop
+        cmp r0, r1
+        bne loopIsStart
+    mov #1, 6(sp)   ;output = 1
+endIsStart:
+    mov (sp)+, r1   ;exit scope
+    mov (sp)+, r0
+    rts r5
 
 
 ; Cycle through strings in alphabet.
@@ -14,13 +32,67 @@ isStart:
 ;Effect:    str is replaced with the following string (lexicographically, cyclic).
 ;Stack:     pc -> length -> str -> ...
 nextString:
+    mov r0, -(sp)   ;enter scope. stack = r0 -> pc -> length -> str
+    mov 6(sp), r0
+    add 4(sp), r0   ;r0 = address of last char + 1
+loopNextString:
+    dec r0
+    cmp r0, 6(sp)       ;if r0 reached beginning of str then exit
+    blt endNextString
+    cmpb (r0), Delim   ;if str[r0]==Delim then replace it with Setmin, then work on str[r0 - 1]
+    beq charIsDelim
+    cmpb (r0), Setmax  ;if str[r0]==Setmax then replace it with Delim
+    beq charIsMax
+    inc (r0)            ;otherwise, replace str[r0] with the following char in alphabet
+    br endNextString
+charIsDelim:
+        mov Setmin, (r0)
+        br loopNextString
+charIsMax:
+        mov Delim, (r0)
+endNextString:
+    mov (sp)+, r0
+    rts pc
 
 
 ; Test if given strings are the same.
-;Inputs:    str1, str2 [stack].
+;Inputs:    str1, str2 [stack] = addresses of strings ending with '@'.
 ;Output:    [stack] 1 iff str1 == str2.
 ;Stack:     pc -> str1 -> str2 -> output (uninitialized) -> ...
 wordsEqual:
+    mov r0, -(sp)   ;enter scope...
+    mov r1, -(sp)   ;stack = r1, r0, pc, str1, str2, output
+    mov 6(sp), r0   ;r0 = *str1[0]
+    mov 10(sp), r1  ;r1 = *str2[0]
+    mov #0, 12(sp)  ;output = 0
+loopWordsEqual:
+        cmpb (r0), (r1)
+        bne endWordsEqual
+        cmpb (r0), '@
+        bne succWordsEqual
+        inc r0
+        inc r1
+        br loopWordsEqual
+succWordsEqual:
+    mov #1, 12(sp)  ;output = 1
+endWordsEqual:
+    mov (sp)+, r1   ;exit scope...
+    mov (sp)+, r0
+    rts pc
+
+
+; Given address of word, find end of word.
+;Inputs:    r2 = address of string/substring beginning with non-space alphabet char.
+;           delim - found at aDelim(sp).
+;Effect:    r2 = address of the first @ or delimiter char following the given address.
+findEndOfWord:
+    inc r2
+    cmpb (r2), aDelim(sp)    ;end if reached space
+    beq endFindEndOfWord
+    cmpb (r2), '@            ;if not reached end of sentence then go to next char
+    bne findEndOfWord
+endFindEndOfWord:
+    rts pc
 
 
 ; Test whether all words in the given sentence are valid terms.
@@ -31,8 +103,66 @@ wordsEqual:
 ;Output:    [stack] 1 iff each word in sentence matches some dictionary-term.
 ;           Note: words are sub-strings seperated by one or more instances of `delim`.
 ;Stack:     pc -> delim -> sent -> dictLength -> dict -> output (uninitialized) -> ...
-sentInDict:
+aWordsEqual = 0
+aDelim      = 16
+aSent       = 20
+aDictLen    = 22
+aDict       = 24
+aOutput     = 26
 
+sentInDict:
+    mov r0, -(sp)   ;enter scope ...
+    mov r1, -(sp)
+    mov r2, -(sp)
+    mov r3, -(sp)
+    mov r4, -(sp)
+    tst -(sp)       ;make space for wordEqual output
+    ;stack = wordsAreEqual, r4, r3, r2, [+10:] r1, r0, pc, delim, [+20:] sent, dictLength, dict, output
+    clr aOutput(sp)     ;output = 0
+    mov aSent(sp), r0   ;set r0 -> beginning of sentence
+    mov aDictLen(sp), r4
+    asl r4
+    add aDict(sp), r4   ;r4 = ((dict) + 2*dictLen) , so r4 points to last entry in dict + 2
+sentLoop:
+        mov aDict(sp), r1  ;set r1 -> first element in dict
+        mov r0, r2
+        jsr pc, findEndOfWord   ;set r2 -> end of current word + 1
+        mov (r2), r3        ;r3 = Delim or @
+        mov '@, (r2)        ;if current word is followed by delimiter then replace it with @
+termLoop:
+            cmp r1, r4      ;if reached end of dictionary and no match was found
+            beq endSentInDict
+            mov r0, -(sp)   ;push address of word
+            mov (r1), -(sp) ;push address of term
+            jsr pc, wordsEqual
+            tst (sp)+       ;pop wordsEqual parameters
+            tst (sp)+
+            tst aWordsEqual(sp)  ;if word != term then go to next term
+            bne termMismatch
+            mov r3, (r2)    ;if we changed a delimiter to @ then undo it
+            cmpb r3, '@     ;if word == term then:
+            beq succSentInDict  ;if reached end of sentence ==> success
+gotoNextWord:                   ;otherwise, increment r0 until it passes all consecutive delimiters
+                inc r0
+                cmpb (r0), aDelim(sp)
+                beq gotoNextWord
+            cmpb (r0), '@       ;if after delimiters there is @ then success, otherwise repeat process for next word
+            beq succSentInDict
+            br sentLoop
+termMismatch:   ;go to next term and retry
+            add #2, r1
+            br termLoop
+succSentInDict:
+    mov #1, aOutput(sp)
+endSentInDict:
+    mov r3, (r2)    ;if we changed a delimiter to @ then undo it
+    tst (sp)+
+    mov (sp)+, r4   ;exit scope...
+    mov (sp)+, r3
+    mov (sp)+, r2
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rts pc
 
 
 ;GLOBALS

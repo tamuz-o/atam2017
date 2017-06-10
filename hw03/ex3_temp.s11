@@ -6,8 +6,137 @@ main:
     jsr pc, sentComp
     halt
 
-;todo
 isPrefix:
+    mov r0, -(sp)   ;saving the prefix address
+    mov r1, -(sp)   ;saving the word address
+    mov r2, -(sp)   ;saving X
+    mov r3, -(sp)   ;backing up the registers
+    mov r4, -(sp)
+    ;we add to the stack X time '1'.
+    ;every '1' is a potential typo (when 1 represent the kind of typo).
+    ;we want to examine each time a different combination of typos.
+    ;we start by assuming every typo is from the first kind ('1').
+    mov r2, r4  ;we put 2X into r4
+    add r2, r4
+    mov r2, r3  ;loop for X times
+stackETypes:
+    mov #1, -(sp)
+    sob r3, stackETypes
+    mov #2, -(sp)
+runLetters:
+    cmpb #'@, (r0)      ;reached end of prefix (success)
+    beq success1
+    cmpb #'@, (r1)      ;reached end of word (probably failure)
+    beq endWord
+    jsr pc, chkLetters  ;compare current letter between prefix & word.
+    cmp (sp), #0          ;if the "prefix" is not really a prefix to the word (even with X mistakes).
+    beq failure1
+    br runLetters   ;we go to the next letter.
+success1:   ;return success.
+    mov #1, r1
+    br end1
+failure1:   ;return failure
+    mov #0, r1
+    br end1
+endWord:    ;check if we can spare more typos
+    tst r2
+    beq failure3
+check:  ;chech if we have more typos to spare then characters left in prefix (success)
+    tstb (r0)+
+    cmpb (r0), #'@
+    beq success1
+    sob r2, check
+;failure. now we try again with differnt typo type combination (advance with nextType)
+failure3:
+    ;nextType build by assuming 2 more functions were called before it. so we imitate the situation.
+    cmp -(sp), -(sp)
+    jsr pc, nextType
+    cmp (sp)+, (sp)+    ;imitate return from 2 functions (to protect the stack)
+    br runLetters
+end1:   ;we have 6 + X local variables in the stack. we get rid off them.
+    add #14, sp
+    add r4, sp
+    rts pc
+
+chkLetters:   ;comparing the current letters of the prefix and the word.
+    cmpb (r0), (r1)
+    bne callChk   ;not equal.
+    cmpb (r0)+, (r1)+   ;go to testing the next letters.
+    rts pc
+callChk:
+    jsr pc, chkTypo
+    rts pc
+
+chkTypo:   ;check if we got more typos to spare
+    cmp r2, #0     ;check if we got more typos to spare
+    bne callAct         ;if we have then continue testing
+rstTypos:   ;otherwise reset the "typos left" counter back to X
+    add r4, sp
+    mov 12(sp), r2
+    sub r4, sp
+    jsr pc, nextType    ;advance the typos combination
+    rts pc
+callAct:                ;program found a typo and keeps testing
+    sub #1, r2  ;now we have one less typos to spare
+
+;advance the letters of the string and the term accourding to the type of typo we assume the string has.
+actTypo:    ;check what kind of typo we're cheking right now and act accordingly
+    add r2, sp  ;we mov to r3 the type of typo we are checking right now.
+    add r2, sp
+    mov 6(sp), r3
+    sub r2, sp
+    sub r2, sp
+    cmp r3, #1   ;letter got changed.
+    beq type1
+    cmp r3, #2   ;letter got deleted.
+    beq type2
+    cmp r3, #3   ;letter added by mistake.
+    beq type3
+type1:
+    cmpb (r0)+, (r1)+   ;move to the next letter in the string and in the term.
+    rts pc
+type2:
+    tstb (r0)+   ;move to the next letter in the prefix.
+    rts pc
+type3:
+    tstb (r1)+   ;move to the next letter in the word.
+    rts pc
+
+nextType:   ;advance the type of typos combination. if we got to the end, send failure
+    add r4, sp  ;we put X into r3, when r3 go to zero we know we are at the start of the "typo type" combination
+    mov 14(sp), r3
+    sub r4, sp
+    mov #0, r4  ;represent how deep we continue in the stack, so we know how much to come back
+    add #10, sp ;we scan the typos type from the end
+loop1:
+    cmp (sp), #3    ;if the type is 3
+    beq case3
+caseNot3:   ;advance the type and return
+    add #1, (sp)    ;advance the type
+    sub r4, sp  ;return with success ('1')
+    tst -(sp)
+    mov #1, (sp)
+    sub #6, sp
+    add r3, r4  ;restoring r4 to 2X
+    add r3, r4
+    add r4, sp  ;restoring the start adress of the "word" to r1 and the "prefix" to r0
+    mov 16(sp), r1
+    mov 20(sp), r0
+    sub r4, sp
+    rts pc
+case3:  ;turn to 1 and continue to the next one
+    tstb -(r3)  ;we are one step closer to the start
+    cmp r3, 0   ;if we are at the start of the typo combination
+    beq failure2
+    mov #1, (sp)    ;turn type back to 1
+    cmp (sp)+, (r4)+    ;go to the next type, and increase r4 (how much we need to go back with the stack pointer)
+    br loop1
+failure2:   ;return with failure ('0')
+    tst (r4)+   ;restoring r4 to 2X
+    sub r4, sp
+    mov #0, (sp)    ;loading failure ('0') in output
+    sub #6, sp
+    rts pc
 
 ; Test if given string is lexicographically the first n-length string.
 ;Inputs:    str [inline] = Address of string.

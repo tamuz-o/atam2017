@@ -94,15 +94,23 @@ endWordsEqual:
 
 ; Given address of word, find end of word.
 ;Inputs:    r2 = address of string/substring beginning with non-space alphabet char.
-;           delim - found at aDelim(sp).
+;           delim - found at 2+aDelim(sp).
 ;Effect:    r2 = address of the first @ or delimiter char following the given address.
 findEndOfWord:
     inc r2
-    cmpb (r2), aDelim(sp)    ;end if reached space
+    cmpb (r2), 2+aDelim(sp)    ;end if reached space
     beq endFindEndOfWord
     cmpb (r2), #'@            ;if not reached end of sentence then go to next char
     bne findEndOfWord
 endFindEndOfWord:
+    rts pc
+
+; Given that r0 points to a delimiter inside a sentence, adavance r0 to the beginning of the next word.
+;Inputs:    delim - found at 2+aDelim(sp).
+gotoNextWord:                   ;otherwise, increment r0 until it passes all consecutive delimiters
+    inc r0
+    cmpb (r0), 2+aDelim(sp)
+    beq gotoNextWord
     rts pc
 
 
@@ -136,7 +144,12 @@ sentInDict:
     mov aDictLen(sp), r4
     asl r4
     add aDict(sp), r4   ;r4 = ((dict) + 2*dictLen) , so r4 points to last entry in dict + 2
+    cmpb (r0), aDelim(sp)   ;if there are spaces at the beginning of sentence then skip them
+    bne sentLoop
+    jsr pc, gotoNextWord
 sentLoop:
+        cmpb (r0), #'@       ;if after delimiters there is @ then success, otherwise repeat process for next word
+        beq succSentInDict
         mov aDict(sp), r1  ;set r1 -> first element in dict
         mov r0, r2
         jsr pc, findEndOfWord   ;set r2 -> end of current word + 1
@@ -152,15 +165,11 @@ termLoop:
             tst (sp)+
             tst aWordsEqual(sp)  ;if word != term then go to next term
             beq termMismatch
+            mov r2, r0      ;r0 -> delimiter after word
             movb r3, (r2)    ;if we changed a delimiter to @ then undo it
             cmpb r3, #'@     ;if word == term then:
             beq succSentInDict  ;if reached end of sentence ==> success
-gotoNextWord:                   ;otherwise, increment r0 until it passes all consecutive delimiters
-                inc r0
-                cmpb (r0), aDelim(sp)
-                beq gotoNextWord
-            cmpb (r0), #'@       ;if after delimiters there is @ then success, otherwise repeat process for next word
-            beq succSentInDict
+            jsr pc, gotoNextWord ;advance r0 to beginning of next word
             br sentLoop
 termMismatch:   ;go to next term and retry
             add #2, r1

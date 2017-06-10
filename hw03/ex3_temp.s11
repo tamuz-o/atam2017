@@ -28,7 +28,7 @@ loopIsStart:
         inc r0              ;increment r0 and loop
         cmp r0, r1
         bne loopIsStart
-    cmpb (r0), '@   ;if string doesnt end with @ then return 0
+    cmpb (r0), #'@   ;if string doesnt end with @ then return 0
     bne endIsStart
     mov #1, 6(sp)   ;output = 1
 endIsStart:
@@ -54,13 +54,13 @@ loopNextString:
     beq charIsDelim
     cmpb (r0), Setmax  ;if str[r0]==Setmax then replace it with Delim
     beq charIsMax
-    inc (r0)            ;otherwise, replace str[r0] with the following char in alphabet
+    incb (r0)            ;otherwise, replace str[r0] with the following char in alphabet
     br endNextString
 charIsDelim:
-        mov Setmin, (r0)
+        movb Setmin, (r0)
         br loopNextString
 charIsMax:
-        mov Delim, (r0)
+        movb Delim, (r0)
 endNextString:
     mov (sp)+, r0
     rts pc
@@ -79,8 +79,8 @@ wordsEqual:
 loopWordsEqual:
         cmpb (r0), (r1)
         bne endWordsEqual
-        cmpb (r0), '@
-        bne succWordsEqual
+        cmpb (r0), #'@
+        beq succWordsEqual
         inc r0
         inc r1
         br loopWordsEqual
@@ -100,7 +100,7 @@ findEndOfWord:
     inc r2
     cmpb (r2), aDelim(sp)    ;end if reached space
     beq endFindEndOfWord
-    cmpb (r2), '@            ;if not reached end of sentence then go to next char
+    cmpb (r2), #'@            ;if not reached end of sentence then go to next char
     bne findEndOfWord
 endFindEndOfWord:
     rts pc
@@ -141,7 +141,7 @@ sentLoop:
         mov r0, r2
         jsr pc, findEndOfWord   ;set r2 -> end of current word + 1
         movb (r2), r3        ;r3 = Delim or @
-        movb '@, (r2)        ;if current word is followed by delimiter then replace it with @
+        movb #'@, (r2)        ;if current word is followed by delimiter then replace it with @
 termLoop:
             cmp r1, r4      ;if reached end of dictionary and no match was found
             beq endSentInDict
@@ -151,15 +151,15 @@ termLoop:
             tst (sp)+       ;pop wordsEqual parameters
             tst (sp)+
             tst aWordsEqual(sp)  ;if word != term then go to next term
-            bne termMismatch
+            beq termMismatch
             movb r3, (r2)    ;if we changed a delimiter to @ then undo it
-            cmpb r3, '@     ;if word == term then:
+            cmpb r3, #'@     ;if word == term then:
             beq succSentInDict  ;if reached end of sentence ==> success
 gotoNextWord:                   ;otherwise, increment r0 until it passes all consecutive delimiters
                 inc r0
                 cmpb (r0), aDelim(sp)
                 beq gotoNextWord
-            cmpb (r0), '@       ;if after delimiters there is @ then success, otherwise repeat process for next word
+            cmpb (r0), #'@       ;if after delimiters there is @ then success, otherwise repeat process for next word
             beq succSentInDict
             br sentLoop
 termMismatch:   ;go to next term and retry
@@ -188,6 +188,7 @@ setFirstString:
     movb Setmin, (r0)+
     br setFirstString
 endSetFirstString:
+    movb #'@, (r0)
     sub MaxLen, r0
     rts pc
 
@@ -199,7 +200,7 @@ copyString:
     mov #Output, r1
 loopCopy:
         movb (r0), (r1)+
-        cmpb (r0)+, '@
+        cmpb (r0)+, #'@
         bne loopCopy
     mov (sp)+, r1   ;exit scope...
     mov (sp)+, r0
@@ -224,11 +225,11 @@ sentComp:
 stringLoop:
         tst -(sp)       ;allocate return value & push parameters for sentInDict
         mov #Dict, -(sp)
-        mov #DictLen, -(sp)
+        mov DictLen, -(sp)
         mov #String, -(sp)
-        movb #Delim, -(sp)
+        movb Delim, -(sp)
         jsr pc, sentInDict
-        add #10, (sp)   ;pop arguments from stack
+        add #10, sp     ;pop arguments from stack
         tst (sp)+       ;if sentence is illegal then go to next string
         beq incString
         mov #String, r1 ;parameter sent to isPrefix
@@ -237,17 +238,18 @@ stringLoop:
         bne finish
 incString:
         mov #String, -(sp)      ;parameters sent to nextString
-        mov #curLength, -(sp)
+        mov curLength, -(sp)
         jsr pc, nextString
         tst (sp)+       ;pop 1, but leave 1 stack-space for return value of isStart
+        mov curLength, 4(pc)    ;send curLength inline to isStart
         jsr r5, isStart
-        .word #String
-        .word #curLength
+        .word 0         ;parameter curLength sent to isStart
+        .word String
         tst -(sp)       ;if not first string then loop
         beq stringLoop
         mov curLength, r3   ;if we cycled back to the first string of curLength then decrement length
         add #String, r3     ;r3 -> current end of String
-        movb '@, (r3)       ;String[curLength] = @
+        movb #'@, (r3)       ;String[curLength] = @
         dec curLength
         br stringLoop
 finish:

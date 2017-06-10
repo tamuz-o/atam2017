@@ -19,8 +19,8 @@ isStart:
     mov r0, -(sp)   ;enter scope...
     mov r1, -(sp)   ;stack = r1 -> r0 -> r5 -> output
     mov #0, 6(sp)   ;output = 0
-    mov 2(r5), r0   ;r0 = address of string
-    mov (r5), r1    ;r1 = string length
+    mov (r5)+, r1    ;r1 = string length
+    mov (r5)+, r0   ;r0 = address of string
     add r0, r1      ;r1 = address of end of string + 1
 loopIsStart:
         cmpb (r0), Setmin   ;if char[r0] != Setmin then return 0
@@ -245,12 +245,12 @@ incString:
         jsr r5, isStart
         .word 0         ;parameter curLength sent to isStart
         .word String
-        tst -(sp)       ;if not first string then loop
+        tst (sp)+       ;if not first string then loop
         beq stringLoop
+        dec curLength
         mov curLength, r3   ;if we cycled back to the first string of curLength then decrement length
         add #String, r3     ;r3 -> current end of String
         movb #'@, (r3)       ;String[curLength] = @
-        dec curLength
         br stringLoop
 finish:
     jsr pc, copyString  ;copy String to Output

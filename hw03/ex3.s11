@@ -7,6 +7,9 @@ main:
     halt
 
 
+; Tests whether given string is prefix for sentence.
+;inputs: r0=setence, r1=prefix, r2=max number of typos.
+;output: r1= 1 if valid prefix, 0 otherwise.
 isPrefix:                  
     mov r1, -(sp)   ;saving the prefix address 
     mov r0, -(sp)   ;saving the word address

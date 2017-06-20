@@ -1,0 +1,6 @@
+fails:
+4	expected str1, score 0. got no result.
+5	expected str1, score 0. got no result.
+8	expected str2, score 3. got str2, score 2.
+11	stack overflow
+12	expected str2, score 4. got str1, score 3.

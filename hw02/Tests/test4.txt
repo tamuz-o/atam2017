@@ -1,0 +1,43 @@
+.=torg + 5000
+
+strings_len:    .word   2
+strings:        .word str1
+                .word str2
+; change r to l to become prefix of shuttle
+str1:           .ascii  <sha@>
+; cannot become a prefix
+str2:           .ascii  <asdf@>
+
+
+.even
+dict_len:       .word   9.
+dict:           .word term1
+                .word term2
+                .word term3
+                .word term4
+                .word term5
+                .word term5
+                .word term6
+                .word term7
+                .word term8
+                .word term9
+
+term1:          .ascii  <managment@>
+term2:          .ascii  <manager@>
+term3:          .ascii  <quick@>
+term4:          .ascii  <queen@>
+term5:          .ascii  <slow@>
+term6:          .ascii  <fast@>
+term7:          .ascii  <astronout@>
+term8:          .ascii  <shuttle@>
+term9:          .ascii  <battle@>
+
+
+.=torg + 6000
+max_string:     .word 0
+max_score:      .word 0
+
+
+.=torg + 7000
+__Expected__:   .word str1      ; max_string
+                .word 1         ; max_score

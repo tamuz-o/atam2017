@@ -1,0 +1,32 @@
+.=torg + 5000
+
+strings_len:	.word 	2
+strings:		.word str1
+				.word str2
+str1:			.ascii	<combi@>
+str2:			.ascii	<atam@>
+
+
+.even
+dict_len:		.word 	5
+dict:	        .word term1
+				.word term2
+				.word term3
+				.word term4
+				.word term5
+
+term1:			.ascii	<atam@>
+term2:			.ascii	<atametoraf@>
+term3:			.ascii	<atamelech@>
+term4:			.ascii	<combination@>
+term5:			.ascii	<combi@>
+
+
+.=torg + 6000
+max_string: 	.word 0
+max_score: 		.word 0
+
+
+.=torg + 7000
+__Expected__:   .word str2      ; max_string
+                .word 3         ; max_score

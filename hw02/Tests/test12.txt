@@ -1,0 +1,43 @@
+.=torg + 5000
+
+strings_len:    .word   2
+strings:        .word str1
+                .word str2
+; can become prefix of term2,5 (2)
+str1:           .ascii  <qwertyuiopasdfgh_klzxcvbnm@>
+; can become prefix of term3,4,7,8 (4)
+str2:           .ascii  <sl@>
+
+
+.even
+dict_len:       .word   9.
+dict:           .word term1
+                .word term2
+                .word term3
+                .word term4
+                .word term5
+                .word term5
+                .word term6
+                .word term7
+                .word term8
+                .word term9
+
+term1:          .ascii  <managmentmanagmentmanagmentmanagment@>
+term2:          .ascii  <qwertyuiopasdfghjklzxcvbnm,12234351@>
+term3:          .ascii  <ssssssssssssssssssssss@>
+term4:          .ascii  <slslslslslslslslslslslsls@>
+term5:          .ascii  <qwertyuiopasdfgh#klzxcvbnmXXXXX222ATAM@>
+term6:          .ascii  <324308574385784350470738573407534753489@>
+term7:          .ascii  <sloWwWw@>
+term8:          .ascii  <lowwwwwwwwwwwwwww1wwwwwwwwwwwwwwwol@>
+term9:          .ascii  <battle@>
+
+
+.=torg + 6000
+max_string:     .word 0
+max_score:      .word 0
+
+
+.=torg + 7000
+__Expected__:   .word str2      ; max_string
+                .word 4         ; max_score

@@ -1,0 +1,24 @@
+.=torg + 5000
+
+strings_len:    .word   3
+strings:        .word str1
+                .word str2
+                .word str3
+str1:           .ascii  <slo@>
+str2:           .ascii  <cast@>
+str3:           .ascii  <Qu@>
+
+
+.even
+dict_len:       .word   0
+dict:           .word 0
+
+
+.=torg + 6000
+max_string:     .word 0
+max_score:      .word 0
+
+
+.=torg + 7000
+__Expected__:   .word str1  ; max_string
+                .word 0     ; max_score

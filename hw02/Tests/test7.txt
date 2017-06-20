@@ -1,0 +1,44 @@
+.=torg + 5000
+
+strings_len:    .word   2
+strings:        .word str1
+                .word str2
+; can become a prefix of MANAGER
+; cannot become a prefix of mAnagment because check is case-sensitive
+str1:           .ascii  <MAN@>
+; cannot become a prefix
+str2:           .ascii  <asdf@>
+
+
+.even
+dict_len:       .word   9.
+dict:           .word term1
+                .word term2
+                .word term3
+                .word term4
+                .word term5
+                .word term5
+                .word term6
+                .word term7
+                .word term8
+                .word term9
+
+term1:          .ascii  <maNagment@>
+term2:          .ascii  <MANager@>
+term3:          .ascii  <quick@>
+term4:          .ascii  <queen@>
+term5:          .ascii  <slow@>
+term6:          .ascii  <FAST@>
+term7:          .ascii  <astronout@>
+term8:          .ascii  <shuTtle@>
+term9:          .ascii  <battle@>
+
+
+.=torg + 6000
+max_string:     .word 0
+max_score:      .word 0
+
+
+.=torg + 7000
+__Expected__:   .word str1      ; max_string
+                .word 1         ; max_score

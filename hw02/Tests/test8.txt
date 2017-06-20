@@ -1,0 +1,46 @@
+.=torg + 5000
+
+strings_len:    .word   3
+strings:        .word str1
+                .word str2
+                .word str3
+; can become a prefix of term9 (1)
+str1:           .ascii  <pass123!@>
+; can become a prefix of term6,7,8 (3)
+str2:           .ascii  <fifa@>
+; can become a prefix of term1,2 (2)
+str3:           .ascii  <a#b@>
+
+
+.even
+dict_len:       .word   9.
+dict:           .word term1
+                .word term2
+                .word term3
+                .word term4
+                .word term5
+                .word term5
+                .word term6
+                .word term7
+                .word term8
+                .word term9
+
+term1:          .ascii  <abcd@>
+term2:          .ascii  <a#a#a#a@>
+term3:          .ascii  <bbbbbbbbb@>
+term4:          .ascii  <astronout@>
+term5:          .ascii  <hrepsh@>
+term6:          .ascii  <fifa&pro@>
+term7:          .ascii  <Fifa4life@>
+term8:          .ascii  <fifo_iss_tack@>
+term9:          .ascii  <pass1234@>
+
+
+.=torg + 6000
+max_string:     .word 0
+max_score:      .word 0
+
+
+.=torg + 7000
+__Expected__:   .word str2      ; max_string
+                .word 3         ; max_score

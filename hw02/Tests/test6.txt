@@ -1,0 +1,46 @@
+.=torg + 5000
+
+strings_len:    .word   3
+strings:        .word str1
+                .word str2
+                .word str3
+; can become prefix of shuttle (1)
+str1:           .ascii  <sh1@>
+; can become prefix of fast & astronout (2)
+str2:           .ascii  <cast@>
+; can become prefix of Quick & Queen (2)
+str3:           .ascii  <Qu@>
+
+
+.even
+dict_len:       .word   9.
+dict:           .word term1
+                .word term2
+                .word term3
+                .word term4
+                .word term5
+                .word term5
+                .word term6
+                .word term7
+                .word term8
+                .word term9
+
+term1:          .ascii  <managment@>
+term2:          .ascii  <Manager@>
+term3:          .ascii  <Quick@>
+term4:          .ascii  <Queen@>
+term5:          .ascii  <slow@>
+term6:          .ascii  <fast@>
+term7:          .ascii  <astronout@>
+term8:          .ascii  <shuttle@>
+term9:          .ascii  <battle@>
+
+
+.=torg + 6000
+max_string:     .word 0
+max_score:      .word 0
+
+
+.=torg + 7000
+__Expected__:   .word str2      ; max_string
+                .word 2         ; max_score

@@ -1,0 +1,50 @@
+.=torg + 12000
+
+X:				.word 1
+
+Dict:
+node1:		.word str1, node2
+node2:		.word str2, node3
+node3:		.word str3, node4
+node4:		.word str4, node5
+node5:		.word str5, node6
+node6:		.word str6, node7
+node7:		.word str7, node8
+node8:		.word str8, node9
+node9:		.word str9, node10
+node10:	.word str10, 0
+
+str1:			.ascii	<go@>
+str2:			.ascii	<hook@>
+str3:			.ascii	<robe@>
+str4:			.ascii	<room@>
+str5:			.ascii	<rose@>
+.even
+str6:		.blkw 5
+str7:		.blkw 5
+str8:		.blkw 5
+str9:		.blkw 5
+str10:		.blkw 5
+
+ExpectedDict:
+_node1:		.word _str1, _node2
+_node2:		.word _str2, _node3
+_node3:		.word _str3, _node4
+_node4:		.word _str4, _node5
+_node5:		.word _str5, _node6
+_node6:		.word _str6, _node7
+_node7:		.word _str7, _node8
+_node8:		.word _str8, _node9
+_node9:		.word _str9, _node10
+_node10:	.word _str10, 0
+
+_str1:		.ascii	<I@>
+_str2:		.ascii	<a@>
+_str3:		.ascii	<book@>
+_str4:		.ascii	<buy@>
+_str5:		.ascii	<go@>
+_str6:		.ascii	<hook@>
+_str7:		.ascii	<robe@>
+_str8:		.ascii	<room@>
+_str9:		.ascii	<rose@>
+_str10:		.ascii	<should@>

@@ -97,8 +97,8 @@ kbdEcho:
 enablePrint:
     ;todo bic tks, ieMask     ;keyboard IE=0
     ;todo bis tps, ieMask     ;printer IE=1
-    inc tks ;todo remove
 kbdEnd:
+    inc tks ;todo remove
     mov (sp)+, r1
     mov (sp)+, r0
     rti

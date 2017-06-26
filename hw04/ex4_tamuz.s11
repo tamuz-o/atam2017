@@ -1,0 +1,221 @@
+cls =   177546              
+tks =   177560          
+tkb =   177562          
+tps =   177564      
+tpb =   177566  
+
+TICKS   =   62  ;50. in decimali    
+LF      =   12                  
+CR      =   15
+ENTER   =   7412 ;LF + CR 00001111 00001100
+BACKSPACE = 10
+;NIL     =   #0
+
+. = torg + 1000
+main:          
+    mov #main,      sp   ;start the stack    
+    ; mov #printer,   @#20    ;register printer vector    
+    ; mov #200,       @#22        
+    mov #keyboard,  @#60    ;register keyboard vector       
+    mov #200,       @#62            
+    ; mov #clock,     @#100   ;register clock vector  
+    ; mov #300        @#102   
+    bis #101,       @#tks   ;turn on the printer
+    br .            ;endless loop here
+
+
+;Get `adrs` in linkage=r1. Get number-string stored at {input..pInput} and store it as
+;integer in `adrs`. Also resets pInput = #input.
+str2Num:
+    mov r0, -(sp)
+    mov r2, -(sp)
+    mov r3, -(sp)
+    mov r4, -(sp)
+    mov r5, -(sp)
+    mov (r1)+, r0   ;r0 = `adrs`
+    mov #input, r5  ;r5 is iterator
+    clr r2          ;r2 = single char (to convert into decimal digit)
+    clr r3          ;r3 = output number
+    mov #10., r4
+str2NumLoop:
+        movb (r5)+, r2
+        sub #'0, r2
+        ash #3, r3
+        ; mul #10, r3      ;shift r3 digits to the right (as decimal)
+        add r2, r3      ;insert r2-digit as last digit of r3
+        cmp r5, pInput
+        bne str2NumLoop
+    mov #input, pInput
+    mov r3, (r0)
+    mov (sp)+, r5
+    mov (sp)+, r4
+    mov (sp)+, r3
+    mov (sp)+, r2
+    mov (sp)+, r0
+    rts r1
+
+
+keyboard:
+    mov r0, -(sp)
+    mov r1, -(sp)
+    mov tkb, r0
+    cmpb r0, #BACKSPACE
+    beq kbdBackspace
+    mov status, r1
+    asl r1
+    add kbdSubrouties, r1
+    jmp (r1)   ;goto kbdSubrouties[status]
+kbdWord:
+kbdYn:
+kbd0Typos:
+kbdWrdsLeft:
+    cmp r0, #CR
+    beq kbdFinWrdsLeft
+    movb r0, @pInput
+    inc pInput
+    br kbdEcho
+kbdFinWrdsLeft:
+        jsr r1, str2Num
+        .word wrdsLeft
+        br kbdEcho
+
+kbdTimeLeft:
+
+kbdBackspace:
+    cmp pInput, #input  ;if we're on the first char of input then ignore
+    beq kbdEnd
+    dec pInput          ;delete last char in `input`
+    mov #1, backsStt    ;otherwise, start the backspace procedure
+    br enablePrint
+
+kbdEcho:
+    mov #2, pStatus
+enablePrint:
+    ;todo bic tks, ieMask     ;keyboard IE=0
+    ;todo bis tps, ieMask     ;printer IE=1
+    inc tks ;todo remove
+kbdEnd:
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rti
+
+
+
+ieMask:         .word 100
+input:          .blkw 6
+pInput:         .word input
+backsStt:       .word 0
+
+.even
+kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
+
+sentPtr:        .word 0
+listPtr:        .word 0
+status:         .word 0   ;enumeration according to kbdSubrouties
+pStatus:        .word 0   ;1=echo; 2=word; 3=message
+end:            .word 0
+wrdsLeft:       .word 0
+timeLeft:       .word 0
+curWord:        .blkw 60.
+curLetter:      .word 0
+string:         .blkw 60.
+pointer:        .word 0
+sort:           .word 0 
+quantiSecond:   .word 0
+sentence:       .blkw 1500
+
+
+
+sent1:  .ascii   <Please enter length of the message:> 
+        .byte LF, CR 
+        .ascii <@>
+sent2:  .ascii   <\nPlease enter number of seconds to finish the message:>
+        .byte LF, CR 
+        .ascii <@>
+sent3: .ascii   <\nYou can start to write your message.> 
+        .byte LF, CR 
+        .ascii <@>
+sent4:  .ascii   <Don't worry we'll assist you!> 
+        .byte LF, CR 
+        .ascii <@>
+sent5:  .ascii   < was added to the message!> 
+        .byte LF, CR 
+        .ascii <@>
+sent6:  .ascii   <The message is: @>
+sent7:  .ascii   <.> 
+        .byte LF, CR 
+        .ascii <@>
+sent8:  .ascii   <Time left: @>
+sent9:  .ascii   < seconds> 
+        .byte LF, CR 
+        .byte LF, CR 
+        .ascii <@>
+sent10: .ascii  <Sorry @>
+sent11: .ascii  < not in our dictionary!> 
+        .byte LF, CR 
+        .ascii <@>
+sent12: .ascii  <Do you mean @>
+sent13: .ascii  < y/n?> 
+        .byte LF, CR 
+        .ascii <@>
+sent14: .ascii  <Thank you!> 
+        .byte LF, CR 
+        .ascii <@>
+sent15: .ascii  <Bye Bye!@>
+sent16: .ascii  <Sorry Time is up!> 
+        .byte LF, CR 
+        .ascii <@>
+
+
+
+
+.=torg + 12000
+
+X:          .word 1
+
+Dict:
+node1:      .word str1, node2
+node2:      .word str2, node3
+node3:      .word str3, node4
+node4:      .word str4, node5
+node5:      .word str5, node6
+node6:      .word str6, node7
+node7:      .word str7, node8
+node8:      .word str8, node9
+node9:      .word str9, node10
+node10:     .word str10, 0
+
+str1:           .ascii  <go@>
+str2:           .ascii  <hook@>
+str3:           .ascii  <robe@>
+str4:           .ascii  <room@>
+str5:           .ascii  <rose@>
+.even
+str6:       .blkw 5
+str7:       .blkw 5
+str8:       .blkw 5
+str9:       .blkw 5
+str10:      .blkw 5
+
+ExpectedDict:
+_node1:     .word _str1, _node2
+_node2:     .word _str2, _node3
+_node3:     .word _str3, _node4
+_node4:     .word _str4, _node5
+_node5:     .word _str5, _node6
+_node6:     .word _str6, _node7
+_node7:     .word _str7, _node8
+_node8:     .word _str8, _node9
+_node9:     .word _str9, _node10
+_node10:    .word _str10, 0
+
+_str1:      .ascii  <I@>
+_str2:      .ascii  <a@>
+_str3:      .ascii  <book@>
+_str4:      .ascii  <buy@>
+_str5:      .ascii  <go@>
+_str6:      .ascii  <hook@>
+_str7:      .ascii  <robe@>
+_str8:      .ascii  <room@>
+_str9:      .ascii  <rose@>
+_str10:     .ascii  <should@>

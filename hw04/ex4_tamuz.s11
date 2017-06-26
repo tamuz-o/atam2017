@@ -63,11 +63,13 @@ keyboard:
     beq kbdBackspace
     mov status, r1
     asl r1
-    add kbdSubrouties, r1
-    jmp (r1)   ;goto kbdSubrouties[status]
+    add #kbdSubrouties, r1
+    jmp @(r1)   ;goto kbdSubrouties[status]
 kbdWord:
 kbdYn:
 kbd0Typos:
+
+kbdTimeLeft:
 kbdWrdsLeft:
     cmp r0, #CR
     beq kbdFinWrdsLeft
@@ -77,9 +79,11 @@ kbdWrdsLeft:
 kbdFinWrdsLeft:
         jsr r1, str2Num
         .word wrdsLeft
+        mov #timeLeft, -10(pc)
+        inc status
         br kbdEcho
 
-kbdTimeLeft:
+
 
 kbdBackspace:
     cmp pInput, #input  ;if we're on the first char of input then ignore
@@ -111,7 +115,7 @@ kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
 
 sentPtr:        .word 0
 listPtr:        .word 0
-status:         .word 0   ;enumeration according to kbdSubrouties
+status:         .word 3   ;todo enumeration according to kbdSubrouties
 pStatus:        .word 0   ;1=echo; 2=word; 3=message
 end:            .word 0
 wrdsLeft:       .word 0

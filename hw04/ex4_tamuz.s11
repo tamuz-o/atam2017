@@ -101,6 +101,51 @@ pushLoop:
     rts pc
 
 
+;Search for word completion
+compWord:
+    mov r5, -(sp)
+    jsr pc, dictPrefix          ;returns 0/1 in r5
+    tst r5
+    bne compEndLoop
+compLoop:
+        add #2, pTerm
+        mov @pTerm, pTerm       ;pTerm->next()
+        tst @pTerm              ;if empty string (end of dict)
+        bne notFinDict
+            inc maxTypos
+            mov #Dict, pTerm        ;restart from beginning of dict
+            cmp maxTypos, X
+            bhi compFail
+        jsr pc, dictPrefix      ;returns 0/1 in r5
+        tst r5
+        beq compLoop
+compEndLoop:        ;r5 points to term
+    clr firstSuggest
+    mov pTerm, -(sp)
+    jsr r5, copyStr     ;copyStr(&pTerm, &string)
+    .word string
+    tst (sp)+
+    tst maxTypos
+    beq comp0Typos
+        mov #3, pStatus     ;print "do you mean <word>? y/n"
+        mov #12., listPtr
+        br compEnd
+comp0Typos:
+        mov #2, pStatus     ;just print the suggested word
+        br compEnd
+compFail:
+    mov #17., listPtr           ;print message 17 ...
+    add firstSuggest, listPtr   ;... or 18
+    mov #3, pStatus
+    mov pInput, -(sp)
+    jsr r5, copyStr             ;send the user's input for printing
+    .word string
+    tst (sp)+
+compEnd:
+    mov (sp)+, r5
+    rts pc
+
+
 ;handle keyboard interrupt
 keyboard:
     mov r0, -(sp)
@@ -249,7 +294,10 @@ sent15: .ascii  <Bye Bye!@>
 sent16: .ascii  <Sorry Time is up!> 
         .byte LF, CR 
         .ascii <@>
-
+sent17: .ascii  < has no other suggestions in our dictionary!>
+        .byte LF, CR, '@
+sent18: .ascii  < not in our dictionary!>
+        .byte LF, CR, '@
 
 
 

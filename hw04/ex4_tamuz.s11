@@ -21,7 +21,7 @@ main:
     mov #200,       @#62            
     ; mov #clock,     @#100   ;register clock vector  
     ; mov #300        @#102   
-    bis #101,       @#tks   ;turn on the printer
+    bis #101,       @#tks   ;turn on the keyboard
     br .            ;endless loop here
 
 
@@ -53,6 +53,46 @@ str2NumLoop:
     mov (sp)+, r2
     mov (sp)+, r0
     rts r1
+
+
+;Stack: Address of source string (that ends with @).
+;Inline: Address of destination string,
+;       Control word: if 0-bit is set then copy the '@' also,
+;                     if 1-bit is set then add single-quotes before and after.
+;Link. reg: r5
+copyStr:
+    mov r0, -(sp)
+    mov r1, -(sp)
+    mov r2, -(sp)
+    mov r3, -(sp)
+    mov 12(sp), r0      ;source word
+    mov (r5)+, r1       ;dest word
+    mov (r5)+, r2
+    mov r2, r3
+    bic #6, r2          ;r2 = boolean: copy '@'
+    asr r3              ;r3 = boolean: add single-quotes to word
+    tst r3
+    beq copyStrLoop
+    movb #'', (r1)+
+copyStrLoop:
+        cmpb (r0), #'@
+        beq copyStrFin
+        movb (r0)+, (r1)+
+        br copyStrLoop
+copyStrFin:
+    tst r3
+    beq copyStrAt
+    movb #'', (r1)+
+copyStrAt:
+    tst r2
+    beq copyStrEnd
+    movb #'@, (r1)+
+copyStrEnd:
+    mov (sp)+, r3
+    mov (sp)+, r2
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rts r5
 
 
 ;copies @-terminated string from `input` to `string`
@@ -104,7 +144,7 @@ pushLoop:
 ;Search for word completion
 compWord:
     mov r5, -(sp)
-    jsr pc, dictPrefix          ;returns 0/1 in r5
+    ;todo jsr pc, dictPrefix          ;returns 0/1 in r5
     tst r5
     bne compEndLoop
 compLoop:
@@ -116,22 +156,29 @@ compLoop:
             mov #Dict, pTerm        ;restart from beginning of dict
             cmp maxTypos, X
             bhi compFail
-        jsr pc, dictPrefix      ;returns 0/1 in r5
+notFinDict:
+        ;todo jsr pc, dictPrefix      ;returns 0/1 in r5
         tst r5
         beq compLoop
 compEndLoop:        ;r5 points to term
     clr firstSuggest
-    mov pTerm, -(sp)
-    jsr r5, copyStr     ;copyStr(&pTerm, &string)
-    .word string
-    tst (sp)+
     tst maxTypos
     beq comp0Typos
         mov #3, pStatus     ;print "do you mean <word>? y/n"
         mov #12., listPtr
+        mov pTerm, -(sp)
+        jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=True, add@=True)
+        .word string
+        .word 3
+        tst (sp)+
         br compEnd
 comp0Typos:
         mov #2, pStatus     ;just print the suggested word
+        mov pTerm, -(sp)
+        jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=False, add@=True)
+        .word string
+        .word 1
+        tst (sp)+
         br compEnd
 compFail:
     mov #17., listPtr           ;print message 17 ...
@@ -228,7 +275,7 @@ kbdEnd:
 ieMask:         .word 100
 input:          .blkw MAX_INPUT
 pInput:         .word input
-backsStt:       .word 0
+backsStt:       .word 0         ;set when the last printed char needs to be deleted (backspace)
 userSentPtr:    .word sentence  ;points to the current end of the user-input sentence.
 maxTypos:       .word 0
 newWord:        .word 0         ;set when word inserted into dict. reset when done sorting.

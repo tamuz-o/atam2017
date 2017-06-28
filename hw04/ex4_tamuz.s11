@@ -38,7 +38,7 @@ str2Num:
     clr r2          ;r2 = single char (to convert into decimal digit)
     clr r3          ;r3 = output number
     mov #10., r4
-str2NumLoop:
+    str2NumLoop:
         movb (r5)+, r2
         sub #'0, r2
         ash #3, r3      ;shift r3 digits to the left (as octal)
@@ -74,20 +74,20 @@ copyStr:
     tst r3
     beq copyStrLoop
     movb #'', (r1)+
-copyStrLoop:
+    copyStrLoop:
         cmpb (r0), #'@
         beq copyStrFin
         movb (r0)+, (r1)+
         br copyStrLoop
-copyStrFin:
+ copyStrFin:
     tst r3
     beq copyStrAt
     movb #'', (r1)+
-copyStrAt:
+ copyStrAt:
     tst r2
     beq copyStrEnd
     movb #'@, (r1)+
-copyStrEnd:
+ copyStrEnd:
     mov (sp)+, r3
     mov (sp)+, r2
     mov (sp)+, r1
@@ -117,17 +117,17 @@ pushWord:
     mov r1, -(sp)   ;dict iterator
     mov r2, -(sp)
     mov #Dict, r1
-findDictEnd:
+    findDictEnd:
         tst @(r1)           ;break if at end of dict
         beq endFindDictEnd
         add #2, r1
         mov @(r1), r1
         br findDictEnd
-endFindDictEnd:     ;now r1 points to beginning of empty string at end of dict
+ endFindDictEnd:     ;now r1 points to beginning of empty string at end of dict
     mov #input, r0
     mov #userSentPtr, r2
     movb #' , (r2)+ ;add space at end of sentence
-pushLoop:
+    pushLoop:
         movb (r0), (r1)+
         movb (r0), (r2)+
         cmpb (r0)+, #'@
@@ -147,7 +147,7 @@ compWord:
     ;todo jsr pc, dictPrefix          ;returns 0/1 in r5
     tst r5
     bne compEndLoop
-compLoop:
+    compLoop:
         add #2, pTerm
         mov @pTerm, pTerm       ;pTerm->next()
         tst @pTerm              ;if empty string (end of dict)
@@ -156,11 +156,11 @@ compLoop:
             mov #Dict, pTerm        ;restart from beginning of dict
             cmp maxTypos, X
             bhi compFail
-notFinDict:
+        notFinDict:
         ;todo jsr pc, dictPrefix      ;returns 0/1 in r5
         tst r5
         beq compLoop
-compEndLoop:        ;r5 points to term
+    compEndLoop:        ;r5 points to term
     clr firstSuggest
     tst maxTypos
     beq comp0Typos
@@ -172,7 +172,7 @@ compEndLoop:        ;r5 points to term
         .word 3
         tst (sp)+
         br compEnd
-comp0Typos:
+    comp0Typos:
         mov #2, pStatus     ;just print the suggested word
         mov pTerm, -(sp)
         jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=False, add@=True)
@@ -180,7 +180,7 @@ comp0Typos:
         .word 1
         tst (sp)+
         br compEnd
-compFail:
+    compFail:
     mov #17., listPtr           ;print message 17 ...
     add firstSuggest, listPtr   ;... or 18
     mov #3, pStatus
@@ -188,7 +188,7 @@ compFail:
     jsr r5, copyStr             ;send the user's input for printing
     .word string
     tst (sp)+
-compEnd:
+ compEnd:
     mov (sp)+, r5
     rts pc
 
@@ -204,71 +204,71 @@ keyboard:
     asl r1
     add #kbdSubrouties, r1
     jmp @(r1)   ;go to kbdSubrouties[status]
-kbdWord:            ;todo decrement wrdsLeft in some cases
-    cmp r0, #'!
-    beq kbdAutocomp
-    cmp r0, #'      ;space
-    beq kbdFinWord
-    cmp r0, #'.
-    beq kbdFinSentence  ;Wooohooooo!
-    movb r0, @pInput
-    inc pInput
-    br kbdEcho
-kbdAutocomp:            ;user pressed '!'
-        clr maxTypos        ;begin by searching 0-typos prefix
-        mov #Dict, pTerm    ;start from beginning of dict
-        mov #1, firstSuggest
-        jsr pc, compWord
-        br enablePrint
+    kbdWord:            ;todo decrement wrdsLeft in some cases
+        cmp r0, #'!
+        beq kbdAutocomp
+        cmp r0, #'      ;space
+        beq kbdFinWord
+        cmp r0, #'.
+        beq kbdFinSentence  ;Wooohooooo!
+        movb r0, @pInput
+        inc pInput
+        br kbdEcho
+    kbdAutocomp:            ;user pressed '!'
+            clr maxTypos        ;begin by searching 0-typos prefix
+            mov #Dict, pTerm    ;start from beginning of dict
+            mov #1, firstSuggest
+            jsr pc, compWord
+            br enablePrint
         
-kbdFinWord:         ;if user pressed space
-        movb #'@, pInput    ;end word with a @
-        jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
-        mov #2, pStatus     ;set print status = print word
+    kbdFinWord:         ;if user pressed space
+            movb #'@, pInput    ;end word with a @
+            jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
+            mov #2, pStatus     ;set print status = print word
+            br enablePrint
+    kbdFinSentence:
+            mov #14., listPtr
+            br kbdEcho
+
+    kbdYn:
+    kbd0Typos:
+
+    kbdTimeLeft:
+    kbdWrdsLeft:
+        cmp r0, #CR
+        beq kbdFinWrdsLeft
+        movb r0, @pInput
+        inc pInput
+        br kbdEcho
+    kbdFinWrdsLeft:
+            jsr r1, str2Num
+            .word wrdsLeft
+            mov #timeLeft, -10(pc)
+            inc status
+            cmp status, #6  ;if user has just inserted timeLeft
+            blt kbdEcho
+            mov #1, status  ;then go to status 1 (read words from user)
+            inc cls         ;and start the countdown
+            br kbdEcho
+
+
+    kbdBackspace:
+        cmp pInput, #input  ;if we're on the first char of input then ignore
+        beq kbdEnd
+        dec pInput          ;delete last char in `input`
+        mov #1, backsStt    ;otherwise, start the backspace procedure
         br enablePrint
-kbdFinSentence:
-        mov #14., listPtr
-        br kbdEcho
 
-kbdYn:
-kbd0Typos:
-
-kbdTimeLeft:
-kbdWrdsLeft:
-    cmp r0, #CR
-    beq kbdFinWrdsLeft
-    movb r0, @pInput
-    inc pInput
-    br kbdEcho
-kbdFinWrdsLeft:
-        jsr r1, str2Num
-        .word wrdsLeft
-        mov #timeLeft, -10(pc)
-        inc status
-        cmp status, #6  ;if user has just inserted timeLeft
-        blt kbdEcho
-        mov #1, status  ;then go to status 1 (read words from user)
-        inc cls         ;and start the countdown
-        br kbdEcho
-
-
-kbdBackspace:
-    cmp pInput, #input  ;if we're on the first char of input then ignore
-    beq kbdEnd
-    dec pInput          ;delete last char in `input`
-    mov #1, backsStt    ;otherwise, start the backspace procedure
-    br enablePrint
-
-kbdEcho:
-    mov #2, pStatus
-enablePrint:
-    ;todo bic tks, ieMask     ;keyboard IE=0
-    ;todo bis tps, ieMask     ;printer IE=1
-kbdEnd:
-    inc tks ;todo remove
-    mov (sp)+, r1
-    mov (sp)+, r0
-    rti
+    kbdEcho:
+        mov #2, pStatus
+    enablePrint:
+        ;todo bic tks, ieMask     ;keyboard IE=0
+        ;todo bis tps, ieMask     ;printer IE=1
+    kbdEnd:
+        inc tks ;todo remove
+        mov (sp)+, r1
+        mov (sp)+, r0
+        rti
 
 
 

@@ -95,21 +95,6 @@ copyStr:
     rts r5
 
 
-;copies @-terminated string from `input` to `string`
-toString:
-    mov r0, -(sp)
-    mov r1, -(sp)
-    mov #input, r0
-    mov #string, r1
-toStrLoop:
-        movb (r0), (r1)+
-        cmpb (r0)+, #'@
-        bne toStrLoop
-    mov (sp)+, r1
-    mov (sp)+, r0
-    rts pc
-
-
 ;takes the @-terminated string at `input`, appends it to the end of `sentence` and
 ;appends it at the end of the dictionary.
 pushWord:
@@ -118,21 +103,23 @@ pushWord:
     mov r2, -(sp)
     mov #Dict, r1
     findDictEnd:
-        tst @(r1)           ;break if at end of dict
+        tstb @(r1)           ;break if at end of dict
         beq endFindDictEnd
         add #2, r1
-        mov @(r1), r1
+        mov (r1), r1
         br findDictEnd
  endFindDictEnd:     ;now r1 points to beginning of empty string at end of dict
-    mov #input, r0
-    mov #userSentPtr, r2
-    movb #' , (r2)+ ;add space at end of sentence
+    mov #input, r0          ;input string iterator
+    mov userSentPtr, r2    ;output sentence iterator
+    mov (r1), r1           ;dict term insertion iterator
     pushLoop:
         movb (r0), (r1)+
         movb (r0), (r2)+
         cmpb (r0)+, #'@
         bne pushLoop
-    dec r2
+    movb #' , -(r2) ;add space at end of sentence
+    inc r2
+    movb #'@, (r2)
     mov r2, userSentPtr ;set userSentPtr to the '@' at the end of the sentence
     mov #1, newWord     ;indicates new word in dictionary
     mov (sp)+, r2
@@ -222,12 +209,20 @@ keyboard:
             br enablePrint
         
     kbdFinWord:         ;if user pressed space
-            movb #'@, pInput    ;end word with a @
+            movb #'@, @pInput   ;end word with a @
             jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
             mov #2, pStatus     ;set print status = print word
+            mov #input, -(sp)
+            jsr r5, copyStr     ;copyStr(&input, &string, addQuotes=True, add@=True)
+            .word string
+            .word 3
+            tst (sp)+
+            mov #input, pInput
             br enablePrint
     kbdFinSentence:
             mov #14., listPtr
+            dec userSentPtr
+            movb #'@, @userSentPtr
             br kbdEcho
 
     kbdYn:
@@ -287,7 +282,7 @@ kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
 
 sentPtr:        .word 0
 listPtr:        .word 0
-status:         .word 3   ;todo enumeration according to kbdSubrouties
+status:         .word 0   ;todo enumeration according to kbdSubrouties
 pStatus:        .word 0   ;1=echo; 2=word; 3=message
 end:            .word 0
 wrdsLeft:       .word 0

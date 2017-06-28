@@ -94,6 +94,7 @@ pushLoop:
         bne pushLoop
     dec r2
     mov r2, userSentPtr ;set userSentPtr to the '@' at the end of the sentence
+    mov #1, newWord     ;indicates new word in dictionary
     mov (sp)+, r2
     mov (sp)+, r1
     mov (sp)+, r0
@@ -111,7 +112,7 @@ keyboard:
     asl r1
     add #kbdSubrouties, r1
     jmp @(r1)   ;go to kbdSubrouties[status]
-kbdWord:
+kbdWord:            ;todo decrement wrdsLeft in some cases
     cmp r0, #'!
     beq kbdAutocomp
     cmp r0, #'      ;space
@@ -121,16 +122,21 @@ kbdWord:
     movb r0, @pInput
     inc pInput
     br kbdEcho
-kbdAutocomp:
-
+kbdAutocomp:            ;user pressed '!'
+        clr maxTypos        ;begin by searching 0-typos prefix
+        mov #Dict, pTerm    ;start from beginning of dict
+        mov #1, firstSuggest
+        jsr pc, compWord
+        br enablePrint
+        
 kbdFinWord:         ;if user pressed space
-    movb #'@, pInput    ;end word with a @
-    jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
-    mov #2, pStatus     ;set print status = print word
-    br enablePrint
+        movb #'@, pInput    ;end word with a @
+        jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
+        mov #2, pStatus     ;set print status = print word
+        br enablePrint
 kbdFinSentence:
-    mov #14., listPtr
-    br kbdEcho
+        mov #14., listPtr
+        br kbdEcho
 
 kbdYn:
 kbd0Typos:
@@ -180,6 +186,9 @@ pInput:         .word input
 backsStt:       .word 0
 userSentPtr:    .word sentence  ;points to the current end of the user-input sentence.
 maxTypos:       .word 0
+newWord:        .word 0         ;set when word inserted into dict. reset when done sorting.
+pTerm:          .word 0         ;points to the next term that we test against the input
+firstSuggest:   .word 0         ;set when looking for completion for the first time for a given prefix
 
 .even
 kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft

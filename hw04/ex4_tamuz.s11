@@ -10,6 +10,7 @@ CR      =   15
 ENTER   =   7412 ;LF + CR 00001111 00001100
 BACKSPACE = 10
 ;NIL     =   #0
+MAX_INPUT = 6
 
 . = torg + 1000
 main:          
@@ -40,8 +41,7 @@ str2Num:
 str2NumLoop:
         movb (r5)+, r2
         sub #'0, r2
-        ash #3, r3
-        ; mul #10, r3      ;shift r3 digits to the right (as decimal)
+        ash #3, r3      ;shift r3 digits to the left (as octal)
         add r2, r3      ;insert r2-digit as last digit of r3
         cmp r5, pInput
         bne str2NumLoop
@@ -55,6 +55,52 @@ str2NumLoop:
     rts r1
 
 
+;copies @-terminated string from `input` to `string`
+toString:
+    mov r0, -(sp)
+    mov r1, -(sp)
+    mov #input, r0
+    mov #string, r1
+toStrLoop:
+        movb (r0), (r1)+
+        cmpb (r0)+, #'@
+        bne toStrLoop
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rts pc
+
+
+;takes the @-terminated string at `input`, appends it to the end of `sentence` and
+;appends it at the end of the dictionary.
+pushWord:
+    mov r0, -(sp)
+    mov r1, -(sp)   ;dict iterator
+    mov r2, -(sp)
+    mov #Dict, r1
+findDictEnd:
+        tst @(r1)           ;break if at end of dict
+        beq endFindDictEnd
+        add #2, r1
+        mov @(r1), r1
+        br findDictEnd
+endFindDictEnd:     ;now r1 points to beginning of empty string at end of dict
+    mov #input, r0
+    mov #userSentPtr, r2
+    movb #' , (r2)+ ;add space at end of sentence
+pushLoop:
+        movb (r0), (r1)+
+        movb (r0), (r2)+
+        cmpb (r0)+, #'@
+        bne pushLoop
+    dec r2
+    mov r2, userSentPtr ;set userSentPtr to the '@' at the end of the sentence
+    mov (sp)+, r2
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rts pc
+
+
+;handle keyboard interrupt
 keyboard:
     mov r0, -(sp)
     mov r1, -(sp)
@@ -64,8 +110,28 @@ keyboard:
     mov status, r1
     asl r1
     add #kbdSubrouties, r1
-    jmp @(r1)   ;goto kbdSubrouties[status]
+    jmp @(r1)   ;go to kbdSubrouties[status]
 kbdWord:
+    cmp r0, #'!
+    beq kbdAutocomp
+    cmp r0, #'      ;space
+    beq kbdFinWord
+    cmp r0, #'.
+    beq kbdFinSentence  ;Wooohooooo!
+    movb r0, @pInput
+    inc pInput
+    br kbdEcho
+kbdAutocomp:
+
+kbdFinWord:         ;if user pressed space
+    movb #'@, pInput    ;end word with a @
+    jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
+    mov #2, pStatus     ;set print status = print word
+    br enablePrint
+kbdFinSentence:
+    mov #14., listPtr
+    br kbdEcho
+
 kbdYn:
 kbd0Typos:
 
@@ -81,8 +147,11 @@ kbdFinWrdsLeft:
         .word wrdsLeft
         mov #timeLeft, -10(pc)
         inc status
+        cmp status, #6  ;if user has just inserted timeLeft
+        blt kbdEcho
+        mov #1, status  ;then go to status 1 (read words from user)
+        inc cls         ;and start the countdown
         br kbdEcho
-
 
 
 kbdBackspace:
@@ -106,9 +175,11 @@ kbdEnd:
 
 
 ieMask:         .word 100
-input:          .blkw 6
+input:          .blkw MAX_INPUT
 pInput:         .word input
 backsStt:       .word 0
+userSentPtr:    .word sentence  ;points to the current end of the user-input sentence.
+maxTypos:       .word 0
 
 .even
 kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft

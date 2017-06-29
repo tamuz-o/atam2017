@@ -292,13 +292,18 @@ pushWord:
     rts pc
 
 
-;Search for word completion
+;Suggest next word completion. Iterates the dictionary starting at `pTerm` and suggests
+;completions up to `maxTypos` typos. If dict is depleted then restart with maxTypos+1.
+;If maxTypos > X then send failure message.
+;Linkage reg = r4. If (r4)=1 then skips the first term.
 compWord:
     mov r0, -(sp)
     mov r1, -(sp)
     mov r2, -(sp)
     mov r3, -(sp)
     mov r5, -(sp)
+    tst (r4)        ;if parameter=1 then skip first word
+    bne compLoop
     mov @pTerm, r0
     mov #input, r1
     mov maxTypos, r2
@@ -354,18 +359,20 @@ compWord:
     .word 3
     tst (sp)+
  compEnd:
+    tst (r4)+
     mov (sp)+, r5
     mov (sp)+, r3
     mov (sp)+, r2
     mov (sp)+, r1
     mov (sp)+, r0
-    rts pc
+    rts r4
 
 
 ;handle keyboard interrupt
 keyboard:
     mov r0, -(sp)
     mov r1, -(sp)
+    mov r4, -(sp)
     mov r5, -(sp)
     mov tkb, r0
     cmpb r0, #BACKSPACE
@@ -389,7 +396,8 @@ keyboard:
             mov #Dict, pTerm    ;start from beginning of dict
             mov #1, firstSuggest
             movb #'@, @pInput    ;append @ at end of input string ;todo remove afterwards
-            jsr pc, compWord
+            jsr r4, compWord
+            .word 0
             br enablePrint
 
     kbdFinWord:         ;if user pressed space
@@ -413,7 +421,7 @@ keyboard:
         ;todo
     kbd0Typos:      ;get enter / spacebar from user
         cmp #' , r0     ;user pressed space
-        bne kbdNextWord
+        bne kbdEnter
         mov @pTerm, -(sp)
         mov userSentPtr, 4(pc)  ;todo test
         jsr r5, copyStr     ;copyStr(<selected term>, <end of sentence>, addQuotes=False, add@=True)
@@ -424,8 +432,9 @@ keyboard:
         mov #input, pInput  ;reset input pointer
         jsr pc, endWord
         br enablePrint
-    kbdNextWord:
-            ;todo
+    kbdEnter:           ;user pressed enter ("no")
+            jsr r4, compWord
+            .word 1
             br enablePrint
 
 
@@ -463,6 +472,7 @@ keyboard:
     kbdEnd:
         inc tks ;todo remove
         mov (sp)+, r5
+        mov (sp)+, r4
         mov (sp)+, r1
         mov (sp)+, r0
         rti

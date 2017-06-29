@@ -368,6 +368,26 @@ compWord:
     rts r4
 
 
+;User accepted suggestion. Add word to sentence.
+sugAccept:
+    mov @pTerm, -(sp)
+    mov userSentPtr, 4(pc)  ;todo test
+    jsr r5, copyStr     ;copyStr(<selected term>, <end of sentence>, addQuotes=False, add@=True)
+    .word 0, 1
+    jsr r5, copyStr     ;copyStr(<selected term>, <printout>, addQuotes=True, add@=True)
+    .word string, 3
+    tst (sp)+
+    mov #input, pInput  ;reset input pointer
+    jsr pc, endWord
+    rts pc
+
+;User declined suggestion. Suggest next word.
+sugDecline:           ;user pressed enter ("no")
+    jsr r4, compWord
+    .word 1
+    rts pc
+
+
 ;handle keyboard interrupt
 keyboard:
     mov r0, -(sp)
@@ -381,7 +401,7 @@ keyboard:
     asl r1
     add #kbdSubrouties, r1
     jmp @(r1)   ;go to kbdSubrouties[status]
-    kbdWord:            ;todo decrement wrdsLeft in some cases
+    kbdWord:
         cmp r0, #'!
         beq kbdAutocomp
         cmp r0, #'      ;space
@@ -395,7 +415,7 @@ keyboard:
             clr maxTypos        ;begin by searching 0-typos prefix
             mov #Dict, pTerm    ;start from beginning of dict
             mov #1, firstSuggest
-            movb #'@, @pInput    ;append @ at end of input string ;todo remove afterwards
+            movb #'@, @pInput    ;append @ at end of input string
             jsr r4, compWord
             .word 0
             br enablePrint
@@ -409,34 +429,30 @@ keyboard:
             .word string
             .word 3
             tst (sp)+
-            mov #input, pInput  ;todo dec wrdsLeft. change stuff about pushWord. Check if wrdsLeft==0
+            mov #input, pInput  ;reset pInput to beginning of input space.
+            jsr pc, endWord
             br enablePrint
     kbdFinSentence:
-            mov #14., listPtr
+            mov #14., listPtr   ;print ending message.
             dec userSentPtr
             movb #'@, @userSentPtr
             br kbdEcho
 
     kbdYn:          ;get y/n from user
-        ;todo
+        cmp #'y, r0     ;user pressed y
+        beq kbdAccept
+        jsr pc, sugDecline  ;user pressed n
+        br enablePrint
+
     kbd0Typos:      ;get enter / spacebar from user
         cmp #' , r0     ;user pressed space
-        bne kbdEnter
-        mov @pTerm, -(sp)
-        mov userSentPtr, 4(pc)  ;todo test
-        jsr r5, copyStr     ;copyStr(<selected term>, <end of sentence>, addQuotes=False, add@=True)
-        .word 0, 1
-        jsr r5, copyStr     ;copyStr(<selected term>, <printout>, addQuotes=True, add@=True)
-        .word string, 3
-        tst (sp)+
-        mov #input, pInput  ;reset input pointer
-        jsr pc, endWord
+        beq kbdAccept
+        jsr pc, sugDecline  ;user pressed enter
         br enablePrint
-    kbdEnter:           ;user pressed enter ("no")
-            jsr r4, compWord
-            .word 1
-            br enablePrint
 
+    kbdAccept:
+        jsr pc, sugAccept
+        br enablePrint
 
     kbdTimeLeft:
     kbdWrdsLeft:

@@ -55,7 +55,7 @@ dictPrefix:
         cmpb #'@, (r1)      ;reached end of prefix (success)
         beq success1
         cmpb #'@, (r0)      ;reached end of word (probably failure)
-        beq endWord
+        beq wordEnded
         jsr pc, chkLetters  ;compare current letter between prefix & word.
         cmp (sp), #0          ;if the "prefix" is not really a prefix to the word (even with X mistakes).
         beq failure1
@@ -71,7 +71,7 @@ dictPrefix:
  failure1:   ;return failure
     mov #0, r1
     br end1
- endWord:    ;check if we can spare more typos
+ wordEnded:    ;check if we can spare more typos
     tst r2
     beq failure3
     check:  ;chech if we have more typos to spare then characters left in prefix (success)
@@ -333,6 +333,7 @@ compWord:
         .word string
         .word 3
         tst (sp)+
+        mov #1, status      ;status = y/n
         br compEnd
     comp0Typos:
         mov #2, pStatus     ;just print the suggested word
@@ -341,6 +342,7 @@ compWord:
         .word string
         .word 1
         tst (sp)+
+        mov #2, status      ;status = enter / spacebar
         br compEnd
     compFail:
     mov #17., listPtr           ;print message 17 ...
@@ -364,6 +366,7 @@ compWord:
 keyboard:
     mov r0, -(sp)
     mov r1, -(sp)
+    mov r5, -(sp)
     mov tkb, r0
     cmpb r0, #BACKSPACE
     beq kbdBackspace
@@ -406,8 +409,25 @@ keyboard:
             movb #'@, @userSentPtr
             br kbdEcho
 
-    kbdYn:
-    kbd0Typos:
+    kbdYn:          ;get y/n from user
+        ;todo
+    kbd0Typos:      ;get enter / spacebar from user
+        cmp #' , r0     ;user pressed space
+        bne kbdNextWord
+        mov @pTerm, -(sp)
+        mov userSentPtr, 4(pc)  ;todo test
+        jsr r5, copyStr     ;copyStr(<selected term>, <end of sentence>, addQuotes=False, add@=True)
+        .word 0, 1
+        jsr r5, copyStr     ;copyStr(<selected term>, <printout>, addQuotes=True, add@=True)
+        .word string, 3
+        tst (sp)+
+        mov #input, pInput  ;reset input pointer
+        jsr pc, endWord
+        br enablePrint
+    kbdNextWord:
+            ;todo
+            br enablePrint
+
 
     kbdTimeLeft:
     kbdWrdsLeft:
@@ -442,10 +462,18 @@ keyboard:
         ;todo bis tps, ieMask     ;printer IE=1
     kbdEnd:
         inc tks ;todo remove
+        mov (sp)+, r5
         mov (sp)+, r1
         mov (sp)+, r0
         rti
 
+;Performs wrdsLeft-- . If wrds depleted then set `end`.
+endWord:
+    dec wrdsLeft
+    bne endEndWord
+    inc end
+ endEndWord:
+    rts pc
 
 
 ieMask:         .word 100
@@ -463,9 +491,9 @@ kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
 
 sentPtr:        .word 0
 listPtr:        .word 0
-status:         .word 0   ;todo enumeration according to kbdSubrouties
-pStatus:        .word 0   ;1=echo; 2=word; 3=message
-end:            .word 0
+status:         .word 0     ;enumeration according to kbdSubrouties ;todo set to kbdWrdsLeft
+pStatus:        .word 0     ;1=echo; 2=word; 3=message
+end:            .word 0     ;enum: 0=still running, 1=finished (time's up / wrdsLeft=0 / fullstop)
 wrdsLeft:       .word 0
 timeLeft:       .word 0
 curWord:        .blkw 60.

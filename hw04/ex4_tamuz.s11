@@ -20,7 +20,7 @@ main:
     mov #keyboard,  @#60    ;register keyboard vector
     mov #200,       @#62
     mov #clock,     @#100   ;register clock vector
-    mov #300        @#102
+    mov #300,       @#102
     bis #100,       @#tps   ;turn on the printer
     ;bis #101,       @#tks   ;turn on the keyboard
     ;br .            ;endless loop here

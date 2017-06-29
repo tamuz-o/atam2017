@@ -10,19 +10,20 @@ CR      =   15
 ENTER   =   7412 ;LF + CR 00001111 00001100
 BACKSPACE = 10
 ;NIL     =   #0
-MAX_INPUT = 6
+MAX_INPUT = 60  ;max size for a single input from user (e.g. one word-string)
 
 . = torg + 1000
 main:
     mov #main,      sp   ;start the stack
-    ; mov #printer,   @#20    ;register printer vector
-    ; mov #200,       @#22
+    mov #printer,   @#20    ;register printer vector
+    mov #200,       @#22
     mov #keyboard,  @#60    ;register keyboard vector
     mov #200,       @#62
-    ; mov #clock,     @#100   ;register clock vector
-    ; mov #300        @#102
-    bis #101,       @#tks   ;turn on the keyboard
-    br .            ;endless loop here
+    mov #clock,     @#100   ;register clock vector
+    mov #300        @#102
+    bis #100,       @#tps   ;turn on the printer
+    ;bis #101,       @#tks   ;turn on the keyboard
+    ;br .            ;endless loop here
 
 
 ; Tests whether given string is prefix for sentence.
@@ -383,7 +384,7 @@ compWord:
 ;User accepted suggestion. Add word to sentence.
 sugAccept:
     mov @pTerm, -(sp)
-    mov userSentPtr, 4(pc)  ;todo test
+    mov userSentPtr, 4(pc)
     jsr r5, copyStr     ;copyStr(<selected term>, <end of sentence>, addQuotes=False, add@=True)
     .word 0, 1
     jsr r5, copyStr     ;copyStr(<selected term>, <printout>, addQuotes=True, add@=True)
@@ -455,17 +456,24 @@ keyboard:
     kbdYn:          ;get y/n from user
         cmp #'y, r0     ;user pressed y
         beq kbdAccept
-        jsr pc, sugDecline  ;user pressed n
-        br enablePrint
+        cmp #'n, r0     ;user pressed n
+        beq kbdDecline
+        ;todo get ! then return to word-insertion status
+        br kbdEnd       ;ignore other input
 
     kbd0Typos:      ;get enter / spacebar from user
         cmp #' , r0     ;user pressed space
         beq kbdAccept
-        jsr pc, sugDecline  ;user pressed enter
-        br enablePrint
+        cmp #CR, r0     ;user pressed enter
+        beq kbdDecline
+        ;todo get ! then return to word-insertion status
+        br kbdEnd       ;ignore other input
 
     kbdAccept:
         jsr pc, sugAccept
+        br enablePrint
+    kbdDecline:
+        jsr pc, sugDecline
         br enablePrint
 
     kbdTimeLeft:
@@ -495,12 +503,13 @@ keyboard:
         br enablePrint
 
     kbdEcho:
+        mov r0, curLetter
         mov #2, pStatus
     enablePrint:
-        ;todo bic tks, ieMask     ;keyboard IE=0
-        ;todo bis tps, ieMask     ;printer IE=1
+        bic tks, ieMask     ;keyboard IE=0  ;todo remove for testing
+        bis tps, ieMask     ;printer IE=1
     kbdEnd:
-        inc tks ;todo remove
+        ;inc tks ;todo remove
         mov (sp)+, r5
         mov (sp)+, r4
         mov (sp)+, r1
@@ -531,12 +540,11 @@ kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
 
 sentPtr:        .word 0
 listPtr:        .word 0
-status:         .word 0     ;enumeration according to kbdSubrouties ;todo set to kbdWrdsLeft
+status:         .word 3     ;enumeration according to kbdSubrouties
 pStatus:        .word 0     ;1=echo; 2=word; 3=message
 end:            .word 0     ;enum: 0=still running, 1=finished (time's up / wrdsLeft=0 / fullstop)
 wrdsLeft:       .word 0
 timeLeft:       .word 0
-curWord:        .blkw 60.
 curLetter:      .word 0
 string:         .blkw 60.
 pointer:        .word 0

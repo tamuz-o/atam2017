@@ -338,9 +338,10 @@ compWord:
     mov #17., listPtr           ;print message 17 ...
     add firstSuggest, listPtr   ;... or 18
     mov #3, pStatus
-    mov pInput, -(sp)
-    jsr r5, copyStr             ;send the user's input for printing
-    .word string
+    mov #input, -(sp)
+    jsr r5, copyStr         ;copyStr(&input, &string, addQuotes=True, add@=True)
+    .word string            ;(prints the user's input in the message)
+    .word 3
     tst (sp)+
  compEnd:
     mov (sp)+, r5
@@ -376,7 +377,7 @@ keyboard:
             clr maxTypos        ;begin by searching 0-typos prefix
             mov #Dict, pTerm    ;start from beginning of dict
             mov #1, firstSuggest
-            mov #'@, @pInput    ;append @ at end of input string ;todo remove afterwards
+            movb #'@, @pInput    ;append @ at end of input string ;todo remove afterwards
             jsr pc, compWord
             br enablePrint
 

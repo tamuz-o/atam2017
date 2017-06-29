@@ -34,6 +34,7 @@ dictPrefix:
     mov r2, -(sp)   ;saving X
     mov r3, -(sp)   ;backing up the registers
     mov r4, -(sp)
+
     ;we add to the stack X time '1'.
     ;every '1' is a potential typo (when 1 represent the kind of typo).
     ;we want to examine each time a different combination of typos.
@@ -285,30 +286,41 @@ pushWord:
 
 ;Search for word completion
 compWord:
+    mov r0, -(sp)
+    mov r1, -(sp)
+    mov r2, -(sp)
+    mov r3, -(sp)
     mov r5, -(sp)
-    jsr pc, dictPrefix          ;returns 0/1 in r5
-    tst r5
+    mov @pTerm, r0
+    mov #input, r1
+    mov maxTypos, r2
+    jsr pc, dictPrefix          ;returns 0/1 in r1
+    tst r1
     bne compEndLoop
     compLoop:
         add #2, pTerm
         mov @pTerm, pTerm       ;pTerm->next()
-        tst @pTerm              ;if empty string (end of dict)
+        mov @pTerm, r1
+        tstb (r1)               ;if empty string (end of dict)
         bne notFinDict
             inc maxTypos
             mov #Dict, pTerm        ;restart from beginning of dict
             cmp maxTypos, X
             bhi compFail
         notFinDict:
-        jsr pc, dictPrefix      ;returns 0/1 in r5
-        tst r5
+        mov @pTerm, r0
+        mov #input, r1
+        mov maxTypos, r2
+        jsr pc, dictPrefix      ;returns 0/1 in r1
+        tst r1
         beq compLoop
-    compEndLoop:        ;r5 points to term
+    compEndLoop:        ;pTerm points to term
     clr firstSuggest
     tst maxTypos
     beq comp0Typos
-        mov #3, pStatus     ;print "do you mean <word>? y/n"
+        mov #3, pStatus     ;print "do you mean '<word>'? y/n"
         mov #12., listPtr
-        mov pTerm, -(sp)
+        mov @pTerm, -(sp)
         jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=True, add@=True)
         .word string
         .word 3
@@ -316,7 +328,7 @@ compWord:
         br compEnd
     comp0Typos:
         mov #2, pStatus     ;just print the suggested word
-        mov pTerm, -(sp)
+        mov @pTerm, -(sp)
         jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=False, add@=True)
         .word string
         .word 1
@@ -332,6 +344,10 @@ compWord:
     tst (sp)+
  compEnd:
     mov (sp)+, r5
+    mov (sp)+, r3
+    mov (sp)+, r2
+    mov (sp)+, r1
+    mov (sp)+, r0
     rts pc
 
 
@@ -360,6 +376,7 @@ keyboard:
             clr maxTypos        ;begin by searching 0-typos prefix
             mov #Dict, pTerm    ;start from beginning of dict
             mov #1, firstSuggest
+            mov #'@, @pInput    ;append @ at end of input string ;todo remove afterwards
             jsr pc, compWord
             br enablePrint
 

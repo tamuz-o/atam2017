@@ -292,6 +292,18 @@ pushWord:
     rts pc
 
 
+;adds a space at the end of `sentence` and increments userSentPtr until it points to
+;the '@' at the end of `sentence`.
+appendSpace:
+    inc userSentPtr
+    cmpb @userSentPtr, #'@
+    bne appendSpace
+    movb #' , @userSentPtr
+    inc userSentPtr
+    movb #'@, @userSentPtr
+    rts pc
+
+
 ;Suggest next word completion. Iterates the dictionary starting at `pTerm` and suggests
 ;completions up to `maxTypos` typos. If dict is depleted then restart with maxTypos+1.
 ;If maxTypos > X then send failure message.
@@ -378,6 +390,8 @@ sugAccept:
     .word string, 3
     tst (sp)+
     mov #input, pInput  ;reset input pointer
+    clr status          ;status = enter next word
+    jsr pc, appendSpace
     jsr pc, endWord
     rts pc
 

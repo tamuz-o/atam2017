@@ -29,6 +29,7 @@ main:
 ;inputs: r0=setence, r1=prefix, r2=max number of typos.
 ;output: r1= 1 if valid prefix, 0 otherwise.
 dictPrefix:
+    mov r5, -(sp)
     mov r1, -(sp)   ;saving the prefix address
     mov r0, -(sp)   ;saving the word address
     mov r2, -(sp)   ;saving X
@@ -39,6 +40,7 @@ dictPrefix:
     ;every '1' is a potential typo (when 1 represent the kind of typo).
     ;we want to examine each time a different combination of typos.
     ;we start by assuming every typo is from the first kind ('1').
+    mov r2, r5  ;r5 will forever hold the maxTypos limit
     mov r2, r4  ;we put 2X into r4
     add r2, r4
     cmp r2, #0  ;if X = 0 ,no need to push typo combination to stack
@@ -58,7 +60,12 @@ runLetters:
     cmp (sp), #0          ;if the "prefix" is not really a prefix to the word (even with X mistakes).
     beq failure1
     br runLetters   ;we go to the next letter.
-success1:   ;return success.
+success1:   ;found match
+    tst r5
+    beq success2
+    cmp r2, r5      ;if we got 0 typos when we expect for more, then fail
+    beq failure1
+success2:
     mov #1, r1
     br end1
 failure1:   ;return failure
@@ -92,6 +99,7 @@ end1:   ;we have 6 + X local variables in the stack. we get rid off them. and re
     mov (sp)+, r3
     mov (sp)+, r2
     mov (sp)+, r0
+    mov (sp)+, r5
     tst (sp)+
     rts pc
 

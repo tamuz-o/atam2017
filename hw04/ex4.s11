@@ -139,6 +139,7 @@ backS2:
 backS3:
 	mov backspace, @#tpb
 	mov #0, backStt
+    bis #101, @#tks
 	br endP
 contin6:	;todo delete
 	cmp pStatus, #1		;if we want to blink
@@ -263,7 +264,10 @@ cntSnt10:
 cntSnt11:
 	cmp listPtr, #sent11	;if we just printed sentence number 10
 	bne	cntSnt12
-	mov #sent8, listPtr	;next sentence to print
+    mov #2, pStatus
+    mov #1, status
+    mov #1, afterWord       ;todo don't blink afterwards
+	mov #curWord, pointer
     br endAp
 cntSnt12:
 	cmp listPtr, #sent12	;if we just printed sentence number 10
@@ -298,12 +302,12 @@ cntSnt16:
     br endAp
 cntSnt17:
 	cmp listPtr, #sent17	;if we just printed sentence number 10
-	bne	cntSnt18
+	; bne	cntSnt18
     br endAp
-cntSnt18:
-	cmp listPtr, #sent18	;if we just printed sentence number 10
-	bne	cntSnt19
-cntSnt19:
+; cntSnt18:
+; 	cmp listPtr, #sent18	;if we just printed sentence number 10
+; 	bne	cntSnt19
+; cntSnt19:
 wait2KB:
 	bis #101, @#tks		;turn on the keyboard
 	bic #100, @#tps		;turn off the printer
@@ -660,6 +664,7 @@ compWord:
         mov @pTerm, r1
         tstb (r1)               ;if empty string (end of dict)
         bne notFinDict
+        finDict:
             inc maxTypos
             mov #Dict, pTerm        ;restart from beginning of dict
             cmp maxTypos, X
@@ -709,7 +714,7 @@ compWord:
     tst firstSuggest
     beq compF2
     jsr r5, chooseSent
-    .word sent18
+    .word sent10
  compF2:
     mov #3, pStatus
     mov #curWord, -(sp)
@@ -854,7 +859,7 @@ keyboard:
             blt enablePrint
             mov #1, status  ;then go to status 1 (read words from user)
             ;todo listPtr
-            mov #100, @#cls         ;and start the countdown
+            ;todo mov #100, @#cls         ;and start the countdown
             jmp enablePrint
 
     kbdAutocomp:            ;user pressed '!'
@@ -954,15 +959,15 @@ sent6: .ascii	<The message is: @>
 sent7: .ascii	<.\n\r@> 
 sent8: .ascii	<Time left: @>
 sent9: .ascii	< seconds\n\r\n\r\> @> 
-sent10: .ascii	<Sorry @>
-sent11: .ascii	< not in our dictionary!\n\r@> 
+sent10: .ascii	<\n\rSorry @>
+sent11: .ascii	< not in our dictionary!\n\r\> @> 
 sent12: .ascii	<\n\rDo you mean @>
 sent13: .ascii	< y/n?@> 
 sent14: .ascii	<\n\rThank you!\n\r@> 
 sent15: .ascii	<Bye Bye!@>
 sent16: .ascii	<\n\rSorry Time is up!\n\r@> 
-sent17: .ascii  < has no other suggestions in our dictionary!\n\r@> 
-sent18: .ascii  < not in our dictionary!\n\r@>
+sent17: .ascii  < has no other suggestions in our dictionary!\n\r\> @> 
+; sent18: .ascii  < not in our dictionary!\n\r@>
 	
 
     

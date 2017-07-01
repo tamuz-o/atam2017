@@ -146,12 +146,18 @@ endP2:
     bis #100, @#tps
 	rti
 endP1:	; restet the pointer to string
-    mov #3, pStatus
-	mov #string, pointer
+    mov #string, pointer
     mov #0, @#tpb
+    cmp afterWord, #0
+    bne wait2KB2
+    mov #3, pStatus
 endP:	;return from printer interrupt
     bis #100, @#tps
 	rti
+wait2KB2:
+    bis #101, @#tks
+    bic #100, @#tps
+    rti
 	
 adPtr:
 	cmp listPtr, #sent1	;if we just printed sentence number 1
@@ -189,6 +195,7 @@ cntSnt6:
 	mov #sentence, pointer	;now we print the sentence
     mov #' , @#tpb
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
 	jmp endAp
 cntSnt7:
 	cmp listPtr, #sent7	;if we just printed sentence number 7
@@ -211,12 +218,14 @@ cntSnt8:
 	bne	cntSnt9
 	jsr pc, time2string	;take timeLeft and turning it to a string
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
 	mov #sent9, listPtr	;next sentence to print
 	jmp endAp
 cntSnt9:
 	cmp listPtr, #sent9	;if we just printed sentence number 9
 	bne	cntSnt10
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
     br wait2KB
 cntSnt10:
 	cmp listPtr, #sent10	;if we just printed sentence number 10
@@ -224,6 +233,7 @@ cntSnt10:
 	mov #sent11, listPtr	;next sentence to print
 	mov #curWord, pointer	;we are going to print the current word now
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
 	jmp endAp
 cntSnt11:
 	cmp listPtr, #sent11	;if we just printed sentence number 10
@@ -637,10 +647,11 @@ compWord:
         .word 3
         tst (sp)+
         mov #enterString, pointer
-        mov #1, status      ;status = y/n
+        mov #2, status      ;status = y/n
         br compEnd
     comp0Typos:
         mov #2, pStatus     ;just print the suggested word
+        mov #1, afterWord
         mov #strT, -(sp)
         jsr r5, copyStr
         .word string
@@ -651,7 +662,7 @@ compWord:
         .word 1
         tst (sp)+
         mov #enterString, pointer
-        mov #2, status      ;status = enter / spacebar
+        mov #3, status      ;status = enter / spacebar
         ; mov #sentEnter, listPtr
         ; mov #sentEnter, sentPtr
         br compEnd
@@ -684,9 +695,14 @@ sugAccept:
     .word string, 3
     tst (sp)+
     mov #curWord, pInput  ;reset curWord pointer
-    clr status          ;status = enter next word
-    jsr pc, appendSpace
+    mov #1, status          ;status = enter next word
+    ; jsr pc, appendSpace
     jsr pc, endWord
+    mov #2, pStatus
+    mov #enterString, pointer
+    mov #0, afterWord
+    mov #sent5, listPtr
+    mov #sent5, sentPtr
     rts pc
 
 ;User declined suggestion. Suggest next word.
@@ -710,97 +726,6 @@ keyboard:
     asl r1
     add #kbdSubrouties, r1
     jmp @(r1)   ;go to kbdSubrouties[status]
-    kbdWord:
-        cmp r0, #'!
-        beq kbdAutocomp
-        cmp r0, #'      ;space
-        beq kbdFinWord
-        cmp r0, #'.
-        beq kbdFinSentence  ;Wooohooooo!
-        movb r0, @pInput
-        inc pInput
-        br kbdEcho
-    kbdAutocomp:            ;user pressed '!'
-            clr maxTypos        ;begin by searching 0-typos prefix
-            mov #Dict, pTerm    ;start from beginning of dict
-            mov #1, firstSuggest
-            movb #'@, @pInput    ;append @ at end of curWord string
-            jsr r4, compWord
-            .word 0
-            br enablePrint
-
-    kbdFinWord:         ;if user pressed space
-            movb #'@, @pInput   ;end word with a @
-            jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
-            mov #2, pStatus     ;set print status = print word
-            mov #enterString, pointer
-            mov #sent5, listPtr
-            mov #sent5, sentPtr
-            mov #curWord, -(sp)
-            jsr r5, copyStr     ;copyStr(&curWord, &string, addQuotes=True, add@=True)
-            .word string
-            .word 3
-            tst (sp)+
-            mov #curWord, pInput  ;reset pInput to beginning of curWord space.
-            jsr pc, endWord
-            br enablePrint
-    kbdFinSentence:
-            mov #14., listPtr   ;print ending message.
-            dec userSentPtr
-            movb #'@, @userSentPtr
-            br kbdEcho
-
-    kbdYn:          ;get y/n from user
-        cmp #'y, r0     ;user pressed y
-        beq kbdAccept
-        cmp #'n, r0     ;user pressed n
-        beq kbdDecline
-        ;todo get ! then return to word-insertion status
-        br kbdEnd       ;ignore other curWord
-
-    kbd0Typos:      ;get enter / spacebar from user
-        cmp #' , r0     ;user pressed space
-        beq kbdAccept
-        cmp #CR, r0     ;user pressed enter
-        beq kbdDecline
-        ;todo get ! then return to word-insertion status
-        br kbdEnd       ;ignore other curWord
-
-    kbdAccept:
-        jsr pc, sugAccept
-        br enablePrint
-    kbdDecline:
-        jsr pc, sugDecline
-        br enablePrint
-
-    kbdTimeLeft:
-    kbdWrdsLeft:
-        cmp r0, #CR
-        beq kbdFinWrdsLeft
-        movb r0, @pInput
-        inc pInput
-        br kbdEcho
-    kbdFinWrdsLeft:
-            jsr r1, str2Num
-            .word wrdsLeft
-            mov #timeLeft, -10(pc)
-            inc status
-            ; mov #sent2, listPtr
-            mov #3, pStatus
-            cmp status, #6  ;if user has just inserted timeLeft
-            blt enablePrint
-            mov #1, status  ;then go to status 1 (read words from user)
-            ;todo listPtr
-            mov #100, @#cls         ;and start the countdown
-            br enablePrint
-
-
-    kbdBackspace:
-        cmp pInput, #curWord  ;if we're on the first char of curWord then ignore
-        beq kbdEnd
-        dec pInput          ;delete last char in `curWord`
-        mov #1, backsStt    ;otherwise, start the backspace procedure
-        br enablePrint
 
     kbdEcho:
         ; mov r0, curLetter
@@ -820,6 +745,100 @@ keyboard:
         mov (sp)+, r0
         rti
 
+    kbdBackspace:
+        cmp pInput, #curWord  ;if we're on the first char of curWord then ignore
+        beq kbdEnd
+        dec pInput          ;delete last char in `curWord`
+        mov #1, backStt    ;otherwise, start the backspace procedure
+        jmp enablePrint
+
+    kbdWord:
+        cmp r0, #'!
+        beq kbdAutocomp
+        cmp r0, #'      ;space
+        beq kbdFinWord
+        cmp r0, #'.
+        beq kbdFinSentence  ;Wooohooooo!
+        movb r0, @pInput
+        inc pInput
+        jmp kbdEcho
+
+    kbdYn:          ;get y/n from user
+        cmp #'y, r0     ;user pressed y
+        beq kbdAccept
+        cmp #'n, r0     ;user pressed n
+        beq kbdDecline
+        ;todo get ! then return to word-insertion status
+        br kbdEnd       ;ignore other curWord
+
+    kbd0Typos:      ;get enter / spacebar from user
+        cmp #' , r0     ;user pressed space
+        beq kbdAccept
+        cmp #CR, r0     ;user pressed enter
+        beq kbdDecline
+        ;todo get ! then return to word-insertion status
+        jmp kbdEnd       ;ignore other curWord
+
+    kbdAccept:
+        jsr pc, sugAccept
+        jmp enablePrint
+    kbdDecline:
+        jsr pc, sugDecline
+        jmp enablePrint
+
+    kbdTimeLeft:
+    kbdWrdsLeft:
+        cmp r0, #CR
+        beq kbdFinWrdsLeft
+        movb r0, @pInput
+        inc pInput
+        jmp kbdEcho
+    kbdFinWrdsLeft:
+            jsr r1, str2Num
+            .word wrdsLeft
+            mov #timeLeft, -10(pc)
+            inc status
+            ; mov #sent2, listPtr
+            mov #3, pStatus
+            cmp status, #6  ;if user has just inserted timeLeft
+            blt enablePrint
+            mov #1, status  ;then go to status 1 (read words from user)
+            ;todo listPtr
+            mov #100, @#cls         ;and start the countdown
+            jmp enablePrint
+
+    kbdAutocomp:            ;user pressed '!'
+            clr maxTypos        ;begin by searching 0-typos prefix
+            mov #Dict, pTerm    ;start from beginning of dict
+            mov #1, firstSuggest
+            movb #'@, @pInput    ;append @ at end of curWord string
+            jsr r4, compWord
+            .word 0
+            jmp enablePrint
+
+    kbdFinWord:         ;if user pressed space
+            movb #'@, @pInput   ;end word with a @
+            jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
+            mov #2, pStatus     ;set print status = print word
+            mov #0, afterWord
+            mov #enterString, pointer
+            mov #sent5, listPtr
+            mov #sent5, sentPtr
+            mov #curWord, -(sp)
+            jsr r5, copyStr     ;copyStr(&curWord, &string, addQuotes=True, add@=True)
+            .word string
+            .word 3
+            tst (sp)+
+            mov #curWord, pInput  ;reset pInput to beginning of curWord space.
+            jsr pc, endWord
+            jmp enablePrint
+    kbdFinSentence:
+            mov #14., listPtr   ;print ending message.
+            dec userSentPtr
+            movb #'@, @userSentPtr
+            jmp kbdEcho
+
+
 ;Performs wrdsLeft-- . If wrds depleted then set `end`.
 endWord:
     dec wrdsLeft
@@ -831,13 +850,13 @@ endWord:
 
 ieMask:         .word 100
 pInput:         .word curWord
-backsStt:       .word 0         ;set when the last printed char needs to be deleted (backspace)
 userSentPtr:    .word sentence  ;points to the current end of the user-curWord sentence.
 maxTypos:       .word 0
 newWord:        .word 0         ;set when word inserted into dict. reset when done sorting.
 pTerm:          .word 0         ;points to the next term that we test against the curWord
 firstSuggest:   .word 0         ;set when looking for completion for the first time for a given prefix
 firstWord:      .word 1
+afterWord:      .word 0         ;after finish printing word: 0=print sentence, 1=KB on
 
 .even
 strT:           .ascii <\> @>
@@ -865,19 +884,19 @@ string:			.blkw 60.
 pointer:			.word 0
 quantiSecond: 	.word 0
 backStt:			.word 0
-sentence:			.blkw 1500
+sentence:			.blkw 750
 
 
 
 sent1: .ascii	<Please enter length of the message:\n\r@> 
 sent2: .ascii	<\n\rPlease enter number of seconds to finish the message:\n\r@> 
 sent3: .ascii	<\n\rYou can start to write your message.\n\r@> 
-sent4: .ascii	<Don't worry we'll assist you!\n\r@> 
+sent4: .ascii	<Don't worry we'll assist you!\n\r\> @> 
 sent5: .ascii	< was added to the message!\n\r@> 
 sent6: .ascii	<The message is: @>
 sent7: .ascii	<.\n\r@> 
 sent8: .ascii	<Time left: @>
-sent9: .ascii	< seconds\n\r\n\r@> 
+sent9: .ascii	< seconds\n\r\n\r\> @> 
 sent10: .ascii	<Sorry @>
 sent11: .ascii	< not in our dictionary!\n\r@> 
 sent12: .ascii	<Do you mean @>

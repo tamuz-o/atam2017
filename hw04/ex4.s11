@@ -254,7 +254,10 @@ cntSnt19:
 wait2KB:
 	bis #101, @#tks		;turn on the keyboard
 	bic #100, @#tps		;turn off the printer
+    br endAp2
 endAp:	
+    mov #0, @#tpb
+endAp2:
 	mov listPtr, sentPtr	;set the sentPtr and the listPtr at the same place
 	rts pc
 
@@ -266,7 +269,7 @@ time2string:
 	mov r2, -(sp)
 	mov #string, r2		;r2 serve as printer
 	add #6, r2	
-	mov #'@, (r2)		;we start by putting @ in the end of the word
+	movb #'@, (r2)		;we start by putting @ in the end of the word
 	mov timeLeft, r0		;r0 will give us the the number and then divide imself by 10 6 times
 t2sLoop:
 	sub #1, r2			;we move backward because we extrapulate the LSB each time
@@ -276,12 +279,12 @@ t2sLoop:
 	asr r0
 	bic #177770, r1		;mask the leave only the LSB
 	cmp r1, #0			;if the LSB is not 0 we move the pointer to r2, because we want to start the printing in the MSB (not in the potential zero sequence that come before)
-	bne contin5		
+	beq contin5		
 	mov r2, pointer
 contin5:
 	add #60, r1			;we turn the LSB to ascii 
-	mov r1, (r2)		;print the ascii letter 
-	cmp r2, #sentence	;if we havn't arrived yet to #string (which means we didn't run 6 times, the number of octal digits in a word).
+	movb r1, (r2)		;print the ascii letter 
+	cmp r2, #string	   ;if we havn't arrived yet to #string (which means we didn't run 6 times, the number of octal digits in a word).
 	bne t2sLoop	
 	mov (sp)+, r2	;we ran 6 times. we finished. now we restore registers and stack
 	mov (sp)+, r1
@@ -846,7 +849,7 @@ sent2: .ascii	<\n\rPlease enter number of seconds to finish the message:\n\r@>
 sent3: .ascii	<\n\rYou can start to write your message.\n\r@> 
 sent4: .ascii	<Don't worry we'll assist you!\n\r@> 
 sent5: .ascii	< was added to the message!\n\r@> 
-sent6: .ascii	<The message is:@>
+sent6: .ascii	<The message is: @>
 sent7: .ascii	<.\n\r@> 
 sent8: .ascii	<Time left: @>
 sent9: .ascii	< seconds\n\r\n\r@> 

@@ -131,9 +131,11 @@ contin4:				;the default option- we want to print a sentence
 	beq endP2
 	movb @sentPtr, @#tpb	;we print the current letter
 	add #1, sentPtr		;and advance the pointer
+    bis #100, @#tps
 	br endP
 endP2:
 	jsr pc, adPtr
+    bis #100, @#tps
 	rti
 endP1:	; restet the pointer to string
 	mov #string, pointer
@@ -666,6 +668,7 @@ keyboard:
     cmpb r0, #BACKSPACE
     beq kbdBackspace
     mov status, r1
+    dec r1
     asl r1
     add #kbdSubrouties, r1
     jmp @(r1)   ;go to kbdSubrouties[status]
@@ -745,7 +748,7 @@ keyboard:
             mov #3, pStatus
             cmp status, #6  ;if user has just inserted timeLeft
             blt enablePrint
-            mov #1, status  ;then go to status 1 (read words from user)
+            mov #0, status  ;then go to status 1 (read words from user)
             ;todo listPtr
             inc cls         ;and start the countdown
             br enablePrint
@@ -762,10 +765,11 @@ keyboard:
         ; mov r0, curLetter
         mov #1, pStatus
         mov r0, @#tpb
-        ; inc @#tks
+        inc @#tks
+        br kbdEnd
     enablePrint:
         bic #101, @#tks     ;keyboard IE=0  ;todo remove for testing
-        bis #100, @#tps     ;printer IE=1
+        ; bis #100, @#tps     ;printer IE=1
         iot
     kbdEnd:
         ;inc tks ;todo remove
@@ -821,8 +825,8 @@ sentence:			.blkw 1500
 
 
 sent1: .ascii	<Please enter length of the message:\n\r@> 
-sent2: .ascii	<\nPlease enter number of seconds to finish the message:\n\r@> 
-sent3: .ascii	<\nYou can start to write your message.\n\r@> 
+sent2: .ascii	<\n\rPlease enter number of seconds to finish the message:\n\r@> 
+sent3: .ascii	<\n\rYou can start to write your message.\n\r@> 
 sent4: .ascii	<Don't worry we'll assist you!\n\r@> 
 sent5: .ascii	< was added to the message!\n\r@> 
 sent6: .ascii	<The message is: @>

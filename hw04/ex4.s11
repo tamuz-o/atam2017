@@ -245,12 +245,13 @@ cntSnt12:
 	bne	cntSnt13
 	mov #sent13, listPtr ;next sentence to print
 	;need to clarify with tamuz what to do here
+    mov #2, pStatus
     br endAp
 cntSnt13:
 	cmp listPtr, #sent13	;if we just printed sentence number 10
 	bne	cntSnt14
 	mov #2, status
-    br endAp
+    br wait2KB
 cntSnt14:
 	cmp listPtr, #sent14	;if we just printed sentence number 10
 	bne	cntSnt15
@@ -314,6 +315,13 @@ contin5:
 	mov (sp)+, r1
 	mov (sp)+, r0
 	rts pc
+
+
+;Gets the address of `sentNN` in linkage register r5 and sets both listPtr and sentPtr to there.
+chooseSent:
+    mov (r5), listPtr
+    mov (r5)+, sentPtr
+    rts r5
 
 	
 ; Tests whether given string is prefix for sentence.
@@ -639,14 +647,19 @@ compWord:
     clr firstSuggest
     tst maxTypos
     beq comp0Typos
+    compWithTypos:
         mov #3, pStatus     ;print "do you mean '<word>'? y/n"
-        mov #12., listPtr
+        mov #0, afterWord
+        ; mov #sent12, listPtr
+        ; mov #sent12, sentPtr
+        jsr r5, chooseSent
+        .word sent12
         mov @pTerm, -(sp)
         jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=True, add@=True)
         .word string
         .word 3
         tst (sp)+
-        mov #enterString, pointer
+        mov #string, pointer
         mov #2, status      ;status = y/n
         br compEnd
     comp0Typos:
@@ -840,10 +853,15 @@ keyboard:
             jsr pc, endWord
             jmp enablePrint
     kbdFinSentence:
-            mov #14., listPtr   ;print ending message.
+            mov #sent14, listPtr   ;print ending message.
+            mov #sent14, sentPtr
             dec userSentPtr
+            movb #'", @userSentPtr
+            inc userSentPtr
             movb #'@, @userSentPtr
-            jmp kbdEcho
+            mov r0, @#tpb
+            mov #3, pStatus
+            jmp kbdEnd
 
 
 ;Performs wrdsLeft-- . If wrds depleted then set `end`.
@@ -906,8 +924,8 @@ sent8: .ascii	<Time left: @>
 sent9: .ascii	< seconds\n\r\n\r\> @> 
 sent10: .ascii	<Sorry @>
 sent11: .ascii	< not in our dictionary!\n\r@> 
-sent12: .ascii	<Do you mean @>
-sent13: .ascii	< y/n?\n\r@> 
+sent12: .ascii	<\n\rDo you mean @>
+sent13: .ascii	< y/n?@> 
 sent14: .ascii	<\n\rThank you!\n\r@> 
 sent15: .ascii	<Bye Bye!@>
 sent16: .ascii	<\n\rSorry Time is up!\n\r@> 

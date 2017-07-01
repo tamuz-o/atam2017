@@ -1,12 +1,13 @@
 cls	=	177546				
 tks	=	177560			
-tpb	=	177562			
+tkb	=	177562			
 tps	=	177564		
 tpb	=	177566	
 
 TICKS	=	62 	;50. in decimali	
 LF  	=	12					
 CR		=	15
+BACKSPACE = 10
 ENTER	=	7412 ;LF + CR 00001111 00001100
 MAX_INPUT = 60.  ;max size for a single input from user (e.g. one word-string)
 
@@ -141,108 +142,105 @@ endP:	;return from printer interrupt
 	
 adPtr:
 	cmp listPtr, #sent1	;if we just printed sentence number 1
-	bne contSnt2			
+	bne cntSnt2			
 	mov #sent2, listPtr	;next sentence to print
 	mov #4, status		;user enter length of sentence (in words)
-	br wait2KB			;wait for the user to enter the data
-contSnt2:
+	jmp wait2KB			;wait for the user to enter the data
+cntSnt2:
 	cmp listPtr, #sent2	;if we just printed sentence number 2
-	bne contSnt3
+	bne cntSnt3
 	mov #sent3, listPtr	;next sentence to print
 	mov #5, status		;user enters time of program	
-	br wait2KB			;wait for the user to enter the data
-contSnt3:
+	jmp wait2KB			;wait for the user to enter the data
+cntSnt3:
 	cmp listPtr, #sent3	;if we just printed sentence number 3
-	bne contSnt4
+	bne cntSnt4
 	mov #sent4, listPtr	;next sentence to print
-	br endAp
-contSnt4:
+	jmp endAp
+cntSnt4:
 	cmp listPtr, #sent4	;if we just printed sentence number 4
-	bne contSnt5
+	bne cntSnt5
 	mov #1, status		;user writes a word
-	br wait2KB			;wait for the user to enter the data
-contSnt5:
+	jmp wait2KB			;wait for the user to enter the data
+cntSnt5:
 	cmp listPtr, #sent5	;if we just printed sentence number 5
-	bne contSnt6
+	bne cntSnt6
 	mov #sent6, listPtr	;next sentence to print
-	br endAp
-contSnt6:
+	jmp endAp
+cntSnt6:
 	cmp listPtr, #sent6	;if we just printed sentence number 6
-	bne contSnt7
+	bne cntSnt7
 	mov #sent7, listPtr	;next sentence to print
 	mov #sentence, pointer	;now we print the sentence
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
-	br endAp
-contSnt7:
+	jmp endAp
+cntSnt7:
 	cmp listPtr, #sent7	;if we just printed sentence number 7
-	bne contSnt8
+	bne cntSnt8
 	cmp end, #1			;check if we out of time or entered to the sentence all the words
 	bne notEnd
 	mov #sent15, listPtr	;next sentence to print
-	br endAp
+	jmp endAp
 notEnd:
 	cmp wrdsLeft, #0
 	bne weHaveMoreWords	
 	mov #sent14, listPtr	;next sentence to print
-	br endAp
+	jmp endAp
 weHaveMoreWords:
 	mov #sent8, listPtr
-	br endAp
-contSnt8:
+	jmp endAp
+cntSnt8:
 	cmp listPtr, #sent8	;if we just printed sentence number 8
-	bne	contSnt9
+	bne	cntSnt9
 	jsr pc, time2string	;take timeLeft and turning it to a string
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
 	mov #sent9, listPtr	;next sentence to print
-	br endAp
-contSnt9:
+	jmp endAp
+cntSnt9:
 	cmp listPtr, #sent9	;if we just printed sentence number 9
-	bne	contSnt10
+	bne	cntSnt10
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
-contSnt10:
+cntSnt10:
 	cmp listPtr, #sent10	;if we just printed sentence number 10
-	bne	contSnt11
+	bne	cntSnt11
 	mov #sent11, listPtr	;next sentence to print
 	mov #curWord, pointer	;we are going to print the current word now
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
-	br endAp
-contSnt11:
+	jmp endAp
+cntSnt11:
 	cmp listPtr, #sent11	;if we just printed sentence number 10
-	bne	contSnt12
+	bne	cntSnt12
 	mov #sent8, listPtr	;next sentence to print
-contSnt12:
+cntSnt12:
 	cmp listPtr, #sent12	;if we just printed sentence number 10
-	bne	contSnt13
+	bne	cntSnt13
 	mov #sent13, listPtr ;next sentence to print
 	;need to clarify with tamuz what to do here
-contSnt13:
+cntSnt13:
 	cmp listPtr, #sent13	;if we just printed sentence number 10
-	bne	contSnt14
+	bne	cntSnt14
 	mov #2, status
-contSnt14:
+cntSnt14:
 	cmp listPtr, #sent14	;if we just printed sentence number 10
-	bne	contSnt15
+	bne	cntSnt15
 	mov #sent6, listPtr 	;next sentence to print
 	mov #1, end			;the program end (out of time or out of words)
-contSnt15:
+cntSnt15:
 	cmp listPtr, #sent15	;if we just printed sentence number 10
-	bne	contSnt16
+	bne	cntSnt16
 	halt
-contSnt15:
-	cmp listPtr, #sent15	;if we just printed sentence number 10
-	bne	contSnt16
-contSnt16:
+cntSnt16:
 	cmp listPtr, #sent16	;if we just printed sentence number 10
-	bne	contSnt17
+	bne	cntSnt17
 	mov #sent6, listPtr	;next sentence to print
 	mov #1, end			;we are out of time
-contSnt17:
+cntSnt17:
 	cmp listPtr, #sent17	;if we just printed sentence number 10
-	bne	contSnt18
-contSnt18:
+	bne	cntSnt18
+cntSnt18:
 	cmp listPtr, #sent18	;if we just printed sentence number 10
-	bne	contSnt19
-contSnt19:
+	bne	cntSnt19
+cntSnt19:
 wait2KB:
 	bis #100, @#tks		;turn on the keyboard
 	bic #100, @#tps		;turn off the printer
@@ -260,7 +258,7 @@ time2string:
 	add #6, r2	
 	mov #'@, (r2)		;we start by putting @ in the end of the word
 	mov timeLeft, r0		;r0 will give us the the number and then divide imself by 10 6 times
-loop1:
+t2sLoop:
 	sub #1, r2			;we move backward because we extrapulate the LSB each time
 	mov r0, r1			;r1 wil turn into the LSB string each time
 	asr r0				;division by 10 of the number
@@ -274,7 +272,7 @@ contin5:
 	add #60, r1			;we turn the LSB to ascii 
 	mov r1, (r2)		;print the ascii letter 
 	cmp r2, #sentence	;if we havn't arrived yet to #string (which means we didn't run 6 times, the number of octal digits in a word).
-	bne loop1	
+	bne t2sLoop	
 	mov (sp)+, r2	;we ran 6 times. we finished. now we restore registers and stack
 	mov (sp)+, r1
 	mov (sp)+, r0
@@ -794,7 +792,7 @@ kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
 
 	
 backspace:		.byte 10
-char>:			.byte 76
+charT:			.byte 76   ;= '>'
 space:			.byte 40
 .even
 
@@ -810,7 +808,6 @@ curWord:			.blkw MAX_INPUT
 curLetter:		.word 0
 string:			.blkw 60.
 pointer:			.word 0
-newWord: 			.word 0	
 quantiSecond: 	.word 0
 backStt:			.word 0
 sentence:			.blkw 1500
@@ -833,6 +830,8 @@ sent13: .ascii	< y/n?\n\r@>
 sent14: .ascii	<Thank you!\n\r@> 
 sent15: .ascii	<Bye Bye!@>
 sent16: .ascii	<Sorry Time is up!\n\r@> 
+sent17: .ascii  < has no other suggestions in our dictionary!\n\r@> 
+sent18: .ascii  < not in our dictionary!\n\r@>
 	
 
 
@@ -841,7 +840,7 @@ sent16: .ascii	<Sorry Time is up!\n\r@>
 
 X:				.word 1
 
-Dic:
+Dict:
 node1:		.word str1, node2
 node2:		.word str2, node3
 node3:		.word str3, node4

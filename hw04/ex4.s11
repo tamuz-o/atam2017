@@ -27,6 +27,8 @@ main:
 	mov #sent1, sentPtr
 	mov	#100,	@#tps	;turn on the printer
 	mov #0, -(sp)	;sending NIL to the pointer of RevBubble
+    mov #'", sentence
+    inc userSentPtr
 	iot
 	jsr pc, RevBubble
 
@@ -131,15 +133,18 @@ contin4:				;the default option- we want to print a sentence
 	beq endP2
 	movb @sentPtr, @#tpb	;we print the current letter
 	add #1, sentPtr		;and advance the pointer
-    bis #100, @#tps
+    ; bis #100, @#tps
 	br endP
 endP2:
 	jsr pc, adPtr
     bis #100, @#tps
 	rti
 endP1:	; restet the pointer to string
+    mov #3, pStatus
 	mov #string, pointer
+    mov #0, @#tpb
 endP:	;return from printer interrupt
+    bis #100, @#tps
 	rti
 	
 adPtr:
@@ -169,12 +174,14 @@ cntSnt5:
 	cmp listPtr, #sent5	;if we just printed sentence number 5
 	bne cntSnt6
 	mov #sent6, listPtr	;next sentence to print
+    mov #CR, @#tpb
 	jmp endAp
 cntSnt6:
 	cmp listPtr, #sent6	;if we just printed sentence number 6
 	bne cntSnt7
 	mov #sent7, listPtr	;next sentence to print
 	mov #sentence, pointer	;now we print the sentence
+    mov #' , @#tpb
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
 	jmp endAp
 cntSnt7:
@@ -533,12 +540,16 @@ pushWord:
     mov #curWord, r0          ;curWord string iterator
     mov userSentPtr, r2    ;output sentence iterator
     mov (r1), r1           ;dict term insertion iterator
+    tst firstWord
+    bne pushLoop
+    dec r2
+    mov #' , (r2)+
     pushLoop:
         movb (r0), (r1)+
         movb (r0), (r2)+
         cmpb (r0)+, #'@
         bne pushLoop
-    movb #' , -(r2) ;add space at end of sentence
+    movb #'", -(r2) ;add space at end of sentence
     inc r2
     movb #'@, (r2)
     mov r2, userSentPtr ;set userSentPtr to the '@' at the end of the sentence
@@ -696,6 +707,9 @@ keyboard:
             movb #'@, @pInput   ;end word with a @
             jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
             mov #2, pStatus     ;set print status = print word
+            mov #enterString, pointer
+            mov #sent5, listPtr
+            mov #sent5, sentPtr
             mov #curWord, -(sp)
             jsr r5, copyStr     ;copyStr(&curWord, &string, addQuotes=True, add@=True)
             .word string
@@ -797,6 +811,7 @@ maxTypos:       .word 0
 newWord:        .word 0         ;set when word inserted into dict. reset when done sorting.
 pTerm:          .word 0         ;points to the next term that we test against the curWord
 firstSuggest:   .word 0         ;set when looking for completion for the first time for a given prefix
+firstWord:      .word 1
 
 .even
 kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
@@ -817,6 +832,7 @@ wrdsLeft:		.word 0
 timeLeft:		.word 0
 curWord:			.blkw MAX_INPUT
 curLetter:		.word 0
+enterString:    .ascii <\n\r>
 string:			.blkw 60.
 pointer:			.word 0
 quantiSecond: 	.word 0
@@ -830,7 +846,7 @@ sent2: .ascii	<\n\rPlease enter number of seconds to finish the message:\n\r@>
 sent3: .ascii	<\n\rYou can start to write your message.\n\r@> 
 sent4: .ascii	<Don't worry we'll assist you!\n\r@> 
 sent5: .ascii	< was added to the message!\n\r@> 
-sent6: .ascii	<The message is: @>
+sent6: .ascii	<The message is:@>
 sent7: .ascii	<.\n\r@> 
 sent8: .ascii	<Time left: @>
 sent9: .ascii	< seconds\n\r\n\r@> 

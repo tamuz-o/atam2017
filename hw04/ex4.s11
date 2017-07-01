@@ -828,7 +828,8 @@ keyboard:
         beq kbdAccept
         cmp #'n, r0     ;user pressed n
         beq kbdDecline
-        ;todo get ! then return to word-insertion status
+        cmp #'!, r0     ;user pressed !
+        beq kbdRetry
         br kbdIgnore       ;ignore other curWord
 
     kbd0Typos:      ;get enter / spacebar from user
@@ -836,7 +837,8 @@ keyboard:
         beq kbdAccept
         cmp #CR, r0     ;user pressed enter
         beq kbdDecline
-        ;todo get ! then return to word-insertion status
+        cmp #'!, r0     ;user pressed !
+        beq kbdRetry
         jmp kbdIgnore       ;ignore other curWord
 
     kbdAccept:
@@ -844,6 +846,10 @@ keyboard:
         jmp enablePrint
     kbdDecline:
         jsr pc, sugDecline
+        jmp enablePrint
+    kbdRetry:
+        jsr pc, retryRoutine
+        mov #1, status
         jmp enablePrint
 
     kbdTimeLeft:
@@ -902,6 +908,25 @@ keyboard:
             mov r0, @#tpb
             mov #3, pStatus
             jmp kbdEnd
+
+
+retryRoutine:
+    mov r5, -(sp)
+    mov #2, pStatus     ;just print the suggested word
+    mov #1, afterWord
+    mov #strT, -(sp)
+    jsr r5, copyStr
+    .word string
+    .word 0
+    mov #curWord, (sp)
+    jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=False, add@=True)
+    .word string+2
+    .word 1
+    tst (sp)+
+    mov #enterString, pointer
+    mov #3, status      ;status = enter / spacebar
+    mov (sp)+, r5
+    rts pc
 
 
 ;Performs wrdsLeft-- . If wrds depleted then set `end`.

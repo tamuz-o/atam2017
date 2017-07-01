@@ -197,7 +197,8 @@ cntSnt7:
 	jmp endAp
 notEnd:
 	cmp wrdsLeft, #0
-	bne weHaveMoreWords	
+	bne weHaveMoreWords
+    mov #1, end	
 	mov #sent14, listPtr	;next sentence to print
 	jmp endAp
 weHaveMoreWords:
@@ -812,9 +813,9 @@ keyboard:
 ;Performs wrdsLeft-- . If wrds depleted then set `end`.
 endWord:
     dec wrdsLeft
-    bne endEndWord
-    inc end
- endEndWord:
+ ;    bne endEndWord
+ ;    inc end
+ ; endEndWord:
     rts pc
 
 
@@ -869,7 +870,7 @@ sent10: .ascii	<Sorry @>
 sent11: .ascii	< not in our dictionary!\n\r@> 
 sent12: .ascii	<Do you mean @>
 sent13: .ascii	< y/n?\n\r@> 
-sent14: .ascii	<Thank you!\n\r@> 
+sent14: .ascii	<\n\rThank you!\n\r@> 
 sent15: .ascii	<Bye Bye!@>
 sent16: .ascii	<Sorry Time is up!\n\r@> 
 sent17: .ascii  < has no other suggestions in our dictionary!\n\r@> 

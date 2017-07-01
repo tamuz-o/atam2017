@@ -90,10 +90,12 @@ clock:
 contin1:					;if we ran out of time, we print the end message and stop
 	cmp timeLeft, #0
 	bne contin2
-	bic #100, tks
-	bis #100, tps
+	bic #101, @#tks
+	bis #100, @#tps
+    clr @#cls
     mov #sent16, listPtr
 	mov #sent16, sentPtr
+    mov #3, pStatus
     mov #0, @#tpb
 contin2:		;return from clock
 	rti
@@ -882,7 +884,7 @@ sent12: .ascii	<Do you mean @>
 sent13: .ascii	< y/n?\n\r@> 
 sent14: .ascii	<\n\rThank you!\n\r@> 
 sent15: .ascii	<Bye Bye!@>
-sent16: .ascii	<Sorry Time is up!\n\r@> 
+sent16: .ascii	<\n\rSorry Time is up!\n\r@> 
 sent17: .ascii  < has no other suggestions in our dictionary!\n\r@> 
 sent18: .ascii  < not in our dictionary!\n\r@>
 	

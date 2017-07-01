@@ -108,16 +108,16 @@ changeB:
     cmp blink, #1
     bne addB
 removeB:
-    bic #100, @#tks
+    bic #1, @#tks
     mov #1, backStt
     mov #0, @#tpb
     bis #100, @#tps
     inc blink
     br contClk
 addB:
-    bis #100, @#tks
     movb blinker, @#tpb
     bis #100, @#tps
+    bis #1, @#tks
     dec blink
     br contClk
 	

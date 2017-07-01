@@ -111,10 +111,10 @@ backS3:
 	mov backspace, @#tpb
 	mov #0, backStt
 	br endP
-contin6:	
+contin6:	;todo delete
 	cmp pStatus, #1		;if we want to echo
 	bne contin3
-	movb @#tpb, @#tpb	;print current letter
+	movb @#tkb, @#tpb	;print current letter
 	bic #100, tps		;turn off printer
 	bis #100, tks		;turn on keyboard
 	endP
@@ -242,7 +242,7 @@ cntSnt18:
 	bne	cntSnt19
 cntSnt19:
 wait2KB:
-	bis #100, @#tks		;turn on the keyboard
+	bis #101, @#tks		;turn on the keyboard
 	bic #100, @#tps		;turn off the printer
 endAp:	
 	mov listPtr, sentPtr	;set the sentPtr and the listPtr at the same place
@@ -756,11 +756,13 @@ keyboard:
         br enablePrint
 
     kbdEcho:
-        mov r0, curLetter
-        mov #2, pStatus
+        ;mov r0, curLetter
+        mov #1, pStatus
+        mov r0, @#tpb
+        inc @#tks
     enablePrint:
-        bic tks, ieMask     ;keyboard IE=0  ;todo remove for testing
-        bis tps, ieMask     ;printer IE=1
+        ;bic #101, @#tks     ;keyboard IE=0  ;todo remove for testing
+        ;bis #100, @#tps     ;printer IE=1
     kbdEnd:
         ;inc tks ;todo remove
         mov (sp)+, r5

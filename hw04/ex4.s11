@@ -302,12 +302,14 @@ cntSnt16:
     br endAp
 cntSnt17:
 	cmp listPtr, #sent17	;if we just printed sentence number 10
-	; bne	cntSnt18
+	bne	cntSnt18
     br endAp
-; cntSnt18:
-; 	cmp listPtr, #sent18	;if we just printed sentence number 10
-; 	bne	cntSnt19
-; cntSnt19:
+cntSnt18:
+    mov #sent11, listPtr    ;next sentence to print
+    mov #curWord, pointer   ;we are going to print the current word now
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
+    jmp endAp
 wait2KB:
 	bis #101, @#tks		;turn on the keyboard
 	bic #100, @#tps		;turn off the printer
@@ -710,7 +712,7 @@ compWord:
         br compEnd
     compFail:
     jsr r5, chooseSent
-    .word sent17
+    .word sent18
     tst firstSuggest
     beq compF2
     jsr r5, chooseSent
@@ -799,6 +801,9 @@ keyboard:
         mov (sp)+, r1
         mov (sp)+, r0
         rti
+    kbdIgnore:
+        inc @#tks
+        br kbdEnd
 
     kbdBackspace:
         cmp pInput, #curWord  ;if we're on the first char of curWord then ignore
@@ -824,7 +829,7 @@ keyboard:
         cmp #'n, r0     ;user pressed n
         beq kbdDecline
         ;todo get ! then return to word-insertion status
-        br kbdEnd       ;ignore other curWord
+        br kbdIgnore       ;ignore other curWord
 
     kbd0Typos:      ;get enter / spacebar from user
         cmp #' , r0     ;user pressed space
@@ -832,7 +837,7 @@ keyboard:
         cmp #CR, r0     ;user pressed enter
         beq kbdDecline
         ;todo get ! then return to word-insertion status
-        jmp kbdEnd       ;ignore other curWord
+        jmp kbdIgnore       ;ignore other curWord
 
     kbdAccept:
         jsr pc, sugAccept
@@ -967,7 +972,7 @@ sent14: .ascii	<\n\rThank you!\n\r@>
 sent15: .ascii	<Bye Bye!@>
 sent16: .ascii	<\n\rSorry Time is up!\n\r@> 
 sent17: .ascii  < has no other suggestions in our dictionary!\n\r\> @> 
-; sent18: .ascii  < not in our dictionary!\n\r@>
+sent18: .ascii  <\n\rSorry @>
 	
 
     

@@ -588,13 +588,13 @@ pushWord:
     rts pc
 
 
-;adds a space at the end of `sentence` and increments userSentPtr until it points to
+;adds a quotes-sign at the end of `sentence` and increments userSentPtr until it points to
 ;the '@' at the end of `sentence`.
-appendSpace:
+appendQuote:
     inc userSentPtr
     cmpb @userSentPtr, #'@
-    bne appendSpace
-    movb #' , @userSentPtr
+    bne appendQuote
+    movb #'", @userSentPtr
     inc userSentPtr
     movb #'@, @userSentPtr
     rts pc
@@ -687,6 +687,13 @@ compWord:
 
 ;User accepted suggestion. Add word to sentence.
 sugAccept:
+    dec userSentPtr
+    tst firstWord       ;if it's not the first word then add space before it
+    bne sugFirstWord
+    movb #' , @userSentPtr
+    inc userSentPtr
+ sugFirstWord:
+    clr firstWord
     mov @pTerm, -(sp)
     mov userSentPtr, 4(pc)
     jsr r5, copyStr     ;copyStr(<selected term>, <end of sentence>, addQuotes=False, add@=True)
@@ -696,9 +703,9 @@ sugAccept:
     tst (sp)+
     mov #curWord, pInput  ;reset curWord pointer
     mov #1, status          ;status = enter next word
-    ; jsr pc, appendSpace
+    jsr pc, appendQuote
     jsr pc, endWord
-    mov #2, pStatus
+    mov #2, pStatus         ;print the given word to the user
     mov #enterString, pointer
     mov #0, afterWord
     mov #sent5, listPtr

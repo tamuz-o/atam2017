@@ -83,7 +83,12 @@ noNeedStch:				;return 0
 	
 clock:
 	add #1, quantiSecond		;every 50 intervals reset the variable and decrese the time that we have left
-	cmp quantiSecond, #TICKS
+    cmp blink, #0
+    beq contClk
+    cmp quantiSecond, #1
+    beq changeB
+contClk:
+	cmp quantiSecond, rate
 	bne contin1
 	mov #0, quantiSecond
 	sub #1, timeLeft
@@ -99,6 +104,22 @@ contin1:					;if we ran out of time, we print the end message and stop
     mov #0, @#tpb
 contin2:		;return from clock
 	rti
+changeB:
+    cmp blink, #1
+    bne addB
+removeB:
+    bic #100, @#tks
+    mov #1, backStt
+    mov #0, @#tpb
+    bis #100, @#tps
+    inc blink
+    br contClk
+addB:
+    bis #100, @#tks
+    movb blinker, @#tpb
+    bis #100, @#tps
+    dec blink
+    br contClk
 	
 printer:	
 	cmp backStt, #0
@@ -120,11 +141,11 @@ backS3:
 	mov #0, backStt
 	br endP
 contin6:	;todo delete
-	cmp pStatus, #1		;if we want to echo
+	cmp pStatus, #1		;if we want to blink
 	bne contin3
 	; movb @#tkb, @#tpb	;print current letter
-	bic #100, tps		;turn off printer
-	bis #101, tks		;turn on keyboard
+	; bic #100, tps		;turn off printer
+	; bis #101, tks		;turn on keyboard
 	br endP
 contin3:
 	cmp pStatus, #2		;if we want to print a word in string (time left or the last word entered by the user)
@@ -251,6 +272,9 @@ cntSnt13:
 	cmp listPtr, #sent13	;if we just printed sentence number 10
 	bne	cntSnt14
 	mov #2, status
+    mov #'?, blinker
+    mov #1, blink
+    mov #1, pStatus
     br wait2KB
 cntSnt14:
 	cmp listPtr, #sent14	;if we just printed sentence number 10
@@ -738,6 +762,11 @@ keyboard:
     mov r1, -(sp)
     mov r4, -(sp)
     mov r5, -(sp)
+ ;    cmp blink, #2
+ ;    bne contKB
+ ;    movb blinker, @#tpb
+ ; contKB:
+    mov #0, blink
     mov tkb, r0
     cmpb r0, #BACKSPACE
     beq kbdBackspace
@@ -898,7 +927,7 @@ busy:			.word 0
 sentPtr: 		.word 0
 listPtr:			.word 0
 status:			.word 0 
-pStatus:			.word 0 
+pStatus:			.word 0  ;1=blink. 2=word. 3=sentence
 end:				.word 0
 wrdsLeft:		.word 0
 timeLeft:		.word 0
@@ -909,6 +938,8 @@ string:			.blkw 60.
 pointer:			.word 0
 quantiSecond: 	.word 0
 backStt:			.word 0
+blink:              .word 0
+blinker:            .word 0
 sentence:			.blkw 750
 
 
@@ -933,9 +964,9 @@ sent17: .ascii  < has no other suggestions in our dictionary!\n\r@>
 sent18: .ascii  < not in our dictionary!\n\r@>
 	
 
-
-	
+    
 .=torg + 12000
+rate:   .word 1000      ;todo remove
 
 X:				.word 1
 

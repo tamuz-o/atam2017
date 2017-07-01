@@ -114,10 +114,10 @@ backS3:
 contin6:	;todo delete
 	cmp pStatus, #1		;if we want to echo
 	bne contin3
-	movb @#tkb, @#tpb	;print current letter
+	; movb @#tkb, @#tpb	;print current letter
 	bic #100, tps		;turn off printer
-	bis #100, tks		;turn on keyboard
-	endP
+	bis #101, tks		;turn on keyboard
+	br endP
 contin3:
 	cmp pStatus, #2		;if we want to print a word in string (time left or the last word entered by the user)
 	bne contin4
@@ -741,11 +741,14 @@ keyboard:
             .word wrdsLeft
             mov #timeLeft, -10(pc)
             inc status
+            mov #sent2, listPtr
+            mov #3, pStatus
             cmp status, #6  ;if user has just inserted timeLeft
-            blt kbdEcho
+            blt enablePrint
             mov #1, status  ;then go to status 1 (read words from user)
+            ;todo listPtr
             inc cls         ;and start the countdown
-            br kbdEcho
+            br enablePrint
 
 
     kbdBackspace:
@@ -756,13 +759,14 @@ keyboard:
         br enablePrint
 
     kbdEcho:
-        ;mov r0, curLetter
+        ; mov r0, curLetter
         mov #1, pStatus
         mov r0, @#tpb
-        inc @#tks
+        ; inc @#tks
     enablePrint:
-        ;bic #101, @#tks     ;keyboard IE=0  ;todo remove for testing
-        ;bis #100, @#tps     ;printer IE=1
+        bic #101, @#tks     ;keyboard IE=0  ;todo remove for testing
+        bis #100, @#tps     ;printer IE=1
+        iot
     kbdEnd:
         ;inc tks ;todo remove
         mov (sp)+, r5

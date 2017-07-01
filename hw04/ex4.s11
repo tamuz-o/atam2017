@@ -158,6 +158,7 @@ cntSnt3:
 	cmp listPtr, #sent3	;if we just printed sentence number 3
 	bne cntSnt4
 	mov #sent4, listPtr	;next sentence to print
+    movb #CR, @#tpb
 	jmp endAp
 cntSnt4:
 	cmp listPtr, #sent4	;if we just printed sentence number 4
@@ -744,11 +745,11 @@ keyboard:
             .word wrdsLeft
             mov #timeLeft, -10(pc)
             inc status
-            mov #sent2, listPtr
+            ; mov #sent2, listPtr
             mov #3, pStatus
             cmp status, #6  ;if user has just inserted timeLeft
             blt enablePrint
-            mov #0, status  ;then go to status 1 (read words from user)
+            mov #1, status  ;then go to status 1 (read words from user)
             ;todo listPtr
             inc cls         ;and start the countdown
             br enablePrint

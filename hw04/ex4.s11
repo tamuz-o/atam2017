@@ -634,16 +634,24 @@ compWord:
         .word string
         .word 3
         tst (sp)+
+        mov #enterString, pointer
         mov #1, status      ;status = y/n
         br compEnd
     comp0Typos:
         mov #2, pStatus     ;just print the suggested word
-        mov @pTerm, -(sp)
-        jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=False, add@=True)
+        mov #strT, -(sp)
+        jsr r5, copyStr
         .word string
+        .word 0
+        mov @pTerm, (sp)
+        jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=False, add@=True)
+        .word string+2
         .word 1
         tst (sp)+
+        mov #enterString, pointer
         mov #2, status      ;status = enter / spacebar
+        ; mov #sentEnter, listPtr
+        ; mov #sentEnter, sentPtr
         br compEnd
     compFail:
     mov #17., listPtr           ;print message 17 ...
@@ -829,6 +837,8 @@ pTerm:          .word 0         ;points to the next term that we test against th
 firstSuggest:   .word 0         ;set when looking for completion for the first time for a given prefix
 firstWord:      .word 1
 
+.even
+strT:           .ascii <\> @>
 .even
 kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
 

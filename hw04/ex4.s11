@@ -153,6 +153,7 @@ contin3:
 	cmpb @pointer, #'@	;if we reached the end of the word we reset the pointer to string 
 	beq endP1
 	movb @pointer, @#tpb	;we print the current letter
+    movb @pointer, blinker  ;the last printed character will blink (if needed)
 	add #1, pointer		;and advance the pointer
 	br endP
 contin4:				;the default option- we want to print a sentence
@@ -170,11 +171,14 @@ endP1:	; restet the pointer to string
     mov #string, pointer
     mov #0, @#tpb
     cmp afterWord, #0
-    bne wait2KB2
+    bne blinkOn
     mov #3, pStatus
 endP:	;return from printer interrupt
     bis #100, @#tps
 	rti
+blinkOn:
+    mov #1, blink
+    mov #1, pStatus
 wait2KB2:
     bis #101, @#tks
     bic #100, @#tps
@@ -763,10 +767,6 @@ keyboard:
     mov r1, -(sp)
     mov r4, -(sp)
     mov r5, -(sp)
- ;    cmp blink, #2
- ;    bne contKB
- ;    movb blinker, @#tpb
- ; contKB:
     mov #0, blink
     mov tkb, r0
     cmpb r0, #BACKSPACE
@@ -911,7 +911,7 @@ newWord:        .word 0         ;set when word inserted into dict. reset when do
 pTerm:          .word 0         ;points to the next term that we test against the curWord
 firstSuggest:   .word 0         ;set when looking for completion for the first time for a given prefix
 firstWord:      .word 1
-afterWord:      .word 0         ;after finish printing word: 0=print sentence, 1=KB on
+afterWord:      .word 0         ;after finish printing word: 0 = print sentence, 1 = KB on & blink last character
 
 .even
 strT:           .ascii <\> @>

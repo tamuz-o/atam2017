@@ -674,8 +674,6 @@ compWord:
     compWithTypos:
         mov #3, pStatus     ;print "do you mean '<word>'? y/n"
         mov #0, afterWord
-        ; mov #sent12, listPtr
-        ; mov #sent12, sentPtr
         jsr r5, chooseSent
         .word sent12
         mov @pTerm, -(sp)
@@ -700,12 +698,15 @@ compWord:
         tst (sp)+
         mov #enterString, pointer
         mov #3, status      ;status = enter / spacebar
-        ; mov #sentEnter, listPtr
-        ; mov #sentEnter, sentPtr
         br compEnd
     compFail:
-    mov #17., listPtr           ;print message 17 ...
-    add firstSuggest, listPtr   ;... or 18
+    jsr r5, chooseSent
+    .word sent17
+    tst firstSuggest
+    beq compF2
+    jsr r5, chooseSent
+    .word sent18
+ compF2:
     mov #3, pStatus
     mov #curWord, -(sp)
     jsr r5, copyStr         ;copyStr(&curWord, &string, addQuotes=True, add@=True)

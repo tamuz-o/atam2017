@@ -27,8 +27,10 @@ main:
 	mov #sent1, sentPtr
 	mov	#100,	@#tps	;turn on the printer
 	mov #0, -(sp)	;sending NIL to the pointer of RevBubble
-    mov #'", sentence
-    inc userSentPtr
+    movb #'", sentence
+    movb #'", sentence+1
+    movb #'@, sentence+2
+    add #2, userSentPtr
 	iot
 	jsr pc, RevBubble
 
@@ -90,7 +92,9 @@ contin1:					;if we ran out of time, we print the end message and stop
 	bne contin2
 	bic #100, tks
 	bis #100, tps
-	mov #sent16, listPtr
+    mov #sent16, listPtr
+	mov #sent16, sentPtr
+    mov #0, @#tpb
 contin2:		;return from clock
 	rti
 	
@@ -210,6 +214,7 @@ cntSnt9:
 	cmp listPtr, #sent9	;if we just printed sentence number 9
 	bne	cntSnt10
 	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    br wait2KB
 cntSnt10:
 	cmp listPtr, #sent10	;if we just printed sentence number 10
 	bne	cntSnt11
@@ -221,20 +226,24 @@ cntSnt11:
 	cmp listPtr, #sent11	;if we just printed sentence number 10
 	bne	cntSnt12
 	mov #sent8, listPtr	;next sentence to print
+    br endAp
 cntSnt12:
 	cmp listPtr, #sent12	;if we just printed sentence number 10
 	bne	cntSnt13
 	mov #sent13, listPtr ;next sentence to print
 	;need to clarify with tamuz what to do here
+    br endAp
 cntSnt13:
 	cmp listPtr, #sent13	;if we just printed sentence number 10
 	bne	cntSnt14
 	mov #2, status
+    br endAp
 cntSnt14:
 	cmp listPtr, #sent14	;if we just printed sentence number 10
 	bne	cntSnt15
 	mov #sent6, listPtr 	;next sentence to print
 	mov #1, end			;the program end (out of time or out of words)
+    br endAp
 cntSnt15:
 	cmp listPtr, #sent15	;if we just printed sentence number 10
 	bne	cntSnt16
@@ -244,9 +253,11 @@ cntSnt16:
 	bne	cntSnt17
 	mov #sent6, listPtr	;next sentence to print
 	mov #1, end			;we are out of time
+    br endAp
 cntSnt17:
 	cmp listPtr, #sent17	;if we just printed sentence number 10
 	bne	cntSnt18
+    br endAp
 cntSnt18:
 	cmp listPtr, #sent18	;if we just printed sentence number 10
 	bne	cntSnt19
@@ -543,10 +554,10 @@ pushWord:
     mov #curWord, r0          ;curWord string iterator
     mov userSentPtr, r2    ;output sentence iterator
     mov (r1), r1           ;dict term insertion iterator
+    dec r2
     tst firstWord
     bne pushLoop
-    dec r2
-    mov #' , (r2)+
+    movb #' , (r2)+
     pushLoop:
         movb (r0), (r1)+
         movb (r0), (r2)+
@@ -560,6 +571,7 @@ pushWord:
     mov (sp)+, r2
     mov (sp)+, r1
     mov (sp)+, r0
+    clr firstWord
     rts pc
 
 
@@ -768,7 +780,7 @@ keyboard:
             blt enablePrint
             mov #1, status  ;then go to status 1 (read words from user)
             ;todo listPtr
-            inc cls         ;and start the countdown
+            mov #100, @#cls         ;and start the countdown
             br enablePrint
 
 

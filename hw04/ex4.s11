@@ -809,6 +809,7 @@ keyboard:
         cmp pInput, #curWord  ;if we're on the first char of curWord then ignore
         beq kbdEnd
         dec pInput          ;delete last char in `curWord`
+        mov #1, pStatus
         mov #1, backStt    ;otherwise, start the backspace procedure
         jmp enablePrint
 

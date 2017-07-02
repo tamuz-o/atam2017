@@ -141,12 +141,9 @@ backS3:
 	mov #0, backStt
     bis #101, @#tks
 	br endP
-contin6:	;todo delete
+contin6:
 	cmp pStatus, #1		;if we want to blink
 	bne contin3
-	; movb @#tkb, @#tpb	;print current letter
-	; bic #100, tps		;turn off printer
-	; bis #101, tks		;turn on keyboard
 	br endP
 contin3:
 	cmp pStatus, #2		;if we want to print a word in string (time left or the last word entered by the user)
@@ -171,8 +168,10 @@ endP2:
 endP1:	; restet the pointer to string
     mov #string, pointer
     mov #0, @#tpb
-    cmp afterWord, #0
-    bne blinkOn
+    cmp afterWord, #1
+    beq blinkOn
+    cmp afterWord, #2
+    beq wait2KB2
     mov #3, pStatus
 endP:	;return from printer interrupt
     bis #100, @#tps
@@ -266,7 +265,7 @@ cntSnt11:
 	bne	cntSnt12
     mov #2, pStatus
     mov #1, status
-    mov #1, afterWord       ;todo don't blink afterwards
+    mov #2, afterWord       ;todo don't blink afterwards
 	mov #curWord, pointer
     br endAp
 cntSnt12:
@@ -652,6 +651,7 @@ compWord:
     mov r2, -(sp)
     mov r3, -(sp)
     mov r5, -(sp)
+    bic #100, cls   ;todo is this ok to do this to avoid bug? also there's the inverse action at the end of this function
     tst (r4)        ;if parameter=1 then skip first word
     bne compLoop
     mov @pTerm, r0
@@ -726,6 +726,7 @@ compWord:
     tst (sp)+
  compEnd:
     tst (r4)+
+    bis #100, cls
     mov (sp)+, r5
     mov (sp)+, r3
     mov (sp)+, r2
@@ -795,7 +796,6 @@ keyboard:
         ; bis #100, @#tps     ;printer IE=1
         iot
     kbdEnd:
-        ;inc tks ;todo remove
         mov (sp)+, r5
         mov (sp)+, r4
         mov (sp)+, r1
@@ -869,8 +869,7 @@ keyboard:
             cmp status, #6  ;if user has just inserted timeLeft
             blt enablePrint
             mov #1, status  ;then go to status 1 (read words from user)
-            ;todo listPtr
-            ;todo mov #100, @#cls         ;and start the countdown
+            mov #100, @#cls         ;and start the countdown
             jmp enablePrint
 
     kbdAutocomp:            ;user pressed '!'
@@ -946,7 +945,7 @@ newWord:        .word 0         ;set when word inserted into dict. reset when do
 pTerm:          .word 0         ;points to the next term that we test against the curWord
 firstSuggest:   .word 0         ;set when looking for completion for the first time for a given prefix
 firstWord:      .word 1
-afterWord:      .word 0         ;after finish printing word: 0 = print sentence, 1 = KB on & blink last character
+afterWord:      .word 0         ;after finish printing word: 0 = print sentence, 1 = KB on & blink last character, 2 = KB on
 
 .even
 strT:           .ascii <\> @>

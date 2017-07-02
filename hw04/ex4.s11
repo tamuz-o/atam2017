@@ -1,39 +1,40 @@
-cls	=	177546				
-tks	=	177560			
-tkb	=	177562			
-tps	=	177564		
-tpb	=	177566	
+cls =   177546              
+tks =   177560          
+tkb =   177562          
+tps =   177564      
+tpb =   177566  
 
-TICKS	=	62 	;50. in decimali	
-LF  	=	12					
-CR		=	15
+TICKS   =   62  ;50. in decimali    
+LF      =   12                  
+CR      =   15
 BACKSPACE = 10
-ENTER	=	7412 ;LF + CR 00001111 00001100
+ENTER   =   7412 ;LF + CR 00001111 00001100
 MAX_INPUT = 60.  ;max size for a single input from user (e.g. one word-string)
 
 . = torg + 1000
 
 main:          
-	mov #main, sp	;start the stack	
-	mov #printer, @#20 ; iot trap initialization
-	mov #200, @#22
-	mov	#printer,	@#64	;register printer vector	
-	mov	#200,	@#66		
-	mov	#keyboard,	@#60	;register keyboard vector		
-	mov	#200,	@#62			
-	mov	#clock,	@#100	;register clock vector	
-	mov	#300,	@#102	
-	mov #sent1, listPtr
-	mov #sent1, sentPtr
-	mov	#100,	@#tps	;turn on the printer
-	mov #Dict, -(sp)	;sending NIL to the pointer of RevBubble
+    mov #main, sp   ;start the stack    
+    mov #printer, @#20 ; iot trap initialization
+    mov #200, @#22
+    mov #printer,   @#64    ;register printer vector    
+    mov #200,   @#66        
+    mov #keyboard,  @#60    ;register keyboard vector       
+    mov #200,   @#62            
+    mov #clock, @#100   ;register clock vector  
+    mov #300,   @#102   
+    mov #sent1, listPtr
+    mov #sent1, sentPtr
+    mov #100,   @#tps   ;turn on the printer
+    mov #Dict, -(sp)    ;sending NIL to the pointer of RevBubble
     movb #'", sentence
     movb #'", sentence+1
     movb #'@, sentence+2
     add #2, userSentPtr
-	iot
-	jsr pc, RevBubble
+    iot
+    jsr pc, RevBubble
 
+;Recursively performs the reverse bubble-sort on Dict.
 RevBubble:
     ;wait for a new node
     cmp newWord, #1     ;when a new node arrives newWord go from 0 to 1
@@ -95,31 +96,33 @@ needSwithch:
 noNeedStch:             ;return 0
     mov #0, r0
     rts pc
-	
+    
 
+;clock interrupt. decreases timeLeft every second and sends sent16 for printing if timeLeft=0.
+;also causes a character to blink if needed.
 clock:
-	add #1, quantiSecond		;every 50 intervals reset the variable and decrese the time that we have left
+    add #1, quantiSecond        ;every 50 intervals reset the variable and decrese the time that we have left
     cmp blink, #0
     beq contClk
     cmp quantiSecond, #1
     beq changeB
 contClk:
-	cmp quantiSecond, rate
-	bne contin1
-	mov #0, quantiSecond
-	sub #1, timeLeft
-contin1:					;if we ran out of time, we print the end message and stop
-	cmp timeLeft, #0
-	bne contin2
-	bic #101, @#tks
-	bis #100, @#tps
+    cmp quantiSecond, rate
+    bne contin1
+    mov #0, quantiSecond
+    sub #1, timeLeft
+contin1:                    ;if we ran out of time, we print the end message and stop
+    cmp timeLeft, #0
+    bne contin2
+    bic #101, @#tks
+    bis #100, @#tps
     clr @#cls
     mov #sent16, listPtr
-	mov #sent16, sentPtr
+    mov #sent16, sentPtr
     mov #3, pStatus
     mov #0, @#tpb
-contin2:		;return from clock
-	rti
+contin2:        ;return from clock
+    rti
 changeB:
     cmp blink, #1
     bne addB
@@ -136,52 +139,53 @@ addB:
     bis #1, @#tks
     dec blink
     br contClk
-	
-printer:	
-	cmp backStt, #0
-	beq contin6
-backS1:	
-	cmp backStt, #1
-	bne backS2
-	movb backspace, @#tpb
-	add #1, backStt
-	br endP
+    
+;printer interrupt handler. Updates the program's status according to current status.
+printer:    
+    cmp backStt, #0
+    beq contin6
+backS1: 
+    cmp backStt, #1
+    bne backS2
+    movb backspace, @#tpb
+    add #1, backStt
+    br endP
 backS2:
-	cmp backStt, #2
-	bne backS3
-	mov space, @#tpb
-	add #1, backStt
-	br endP
+    cmp backStt, #2
+    bne backS3
+    mov space, @#tpb
+    add #1, backStt
+    br endP
 backS3:
-	mov backspace, @#tpb
-	mov #0, backStt
+    mov backspace, @#tpb
+    mov #0, backStt
     bis #101, @#tks
-	br endP
+    br endP
 contin6:
-	cmp pStatus, #1		;if we want to blink
-	bne contin3
-	br endP
+    cmp pStatus, #1     ;if we want to blink
+    bne contin3
+    br endP
 contin3:
-	cmp pStatus, #2		;if we want to print a word in string (time left or the last word entered by the user)
-	bne contin4
-	cmpb @pointer, #'@	;if we reached the end of the word we reset the pointer to string 
-	beq endP1
-	movb @pointer, @#tpb	;we print the current letter
+    cmp pStatus, #2     ;if we want to print a word in string (time left or the last word entered by the user)
+    bne contin4
+    cmpb @pointer, #'@  ;if we reached the end of the word we reset the pointer to string 
+    beq endP1
+    movb @pointer, @#tpb    ;we print the current letter
     movb @pointer, blinker  ;the last printed character will blink (if needed)
-	add #1, pointer		;and advance the pointer
-	br endP
-contin4:				;the default option- we want to print a sentence
-	cmpb @sentPtr, #'@	;if we reached the end of the sentence we call adPtr 
-	beq endP2
-	movb @sentPtr, @#tpb	;we print the current letter
-	add #1, sentPtr		;and advance the pointer
+    add #1, pointer     ;and advance the pointer
+    br endP
+contin4:                ;the default option- we want to print a sentence
+    cmpb @sentPtr, #'@  ;if we reached the end of the sentence we call adPtr 
+    beq endP2
+    movb @sentPtr, @#tpb    ;we print the current letter
+    add #1, sentPtr     ;and advance the pointer
     ; bis #100, @#tps
-	br endP
+    br endP
 endP2:
-	jsr pc, adPtr
+    jsr pc, adPtr
     bis #100, @#tps
-	rti
-endP1:	; restet the pointer to string
+    rti
+endP1:  ; restet the pointer to string
     mov #string, pointer
     mov #0, @#tpb
     cmp afterWord, #1
@@ -189,9 +193,9 @@ endP1:	; restet the pointer to string
     cmp afterWord, #2
     beq wait2KB2
     mov #3, pStatus
-endP:	;return from printer interrupt
+endP:   ;return from printer interrupt
     bis #100, @#tps
-	rti
+    rti
 blinkOn:
     mov #1, blink
     mov #1, pStatus
@@ -199,126 +203,128 @@ wait2KB2:
     bis #101, @#tks
     bic #100, @#tps
     rti
-	
+
+;called when `printer` finishes printing one of the pre-made messages. sets program status
+;according to current status.
 adPtr:
-	cmp listPtr, #sent1	;if we just printed sentence number 1
-	bne cntSnt2			
-	mov #sent2, listPtr	;next sentence to print
-	mov #4, status		;user enter length of sentence (in words)
-	jmp wait2KB			;wait for the user to enter the data
+    cmp listPtr, #sent1 ;if we just printed sentence number 1
+    bne cntSnt2         
+    mov #sent2, listPtr ;next sentence to print
+    mov #4, status      ;user enter length of sentence (in words)
+    jmp wait2KB         ;wait for the user to enter the data
 cntSnt2:
-	cmp listPtr, #sent2	;if we just printed sentence number 2
-	bne cntSnt3
-	mov #sent3, listPtr	;next sentence to print
-	mov #5, status		;user enters time of program	
-	jmp wait2KB			;wait for the user to enter the data
+    cmp listPtr, #sent2 ;if we just printed sentence number 2
+    bne cntSnt3
+    mov #sent3, listPtr ;next sentence to print
+    mov #5, status      ;user enters time of program    
+    jmp wait2KB         ;wait for the user to enter the data
 cntSnt3:
-	cmp listPtr, #sent3	;if we just printed sentence number 3
-	bne cntSnt4
-	mov #sent4, listPtr	;next sentence to print
+    cmp listPtr, #sent3 ;if we just printed sentence number 3
+    bne cntSnt4
+    mov #sent4, listPtr ;next sentence to print
     movb #CR, @#tpb
-	jmp endAp
+    jmp endAp
 cntSnt4:
-	cmp listPtr, #sent4	;if we just printed sentence number 4
-	bne cntSnt5
-	mov #1, status		;user writes a word
-	jmp wait2KB			;wait for the user to enter the data
+    cmp listPtr, #sent4 ;if we just printed sentence number 4
+    bne cntSnt5
+    mov #1, status      ;user writes a word
+    jmp wait2KB         ;wait for the user to enter the data
 cntSnt5:
-	cmp listPtr, #sent5	;if we just printed sentence number 5
-	bne cntSnt6
-	mov #sent6, listPtr	;next sentence to print
+    cmp listPtr, #sent5 ;if we just printed sentence number 5
+    bne cntSnt6
+    mov #sent6, listPtr ;next sentence to print
     mov #CR, @#tpb
-	jmp endAp
+    jmp endAp
 cntSnt6:
-	cmp listPtr, #sent6	;if we just printed sentence number 6
-	bne cntSnt7
-	mov #sent7, listPtr	;next sentence to print
-	mov #sentence, pointer	;now we print the sentence
+    cmp listPtr, #sent6 ;if we just printed sentence number 6
+    bne cntSnt7
+    mov #sent7, listPtr ;next sentence to print
+    mov #sentence, pointer  ;now we print the sentence
     mov #' , @#tpb
-	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
     mov #0, afterWord
-	jmp endAp
+    jmp endAp
 cntSnt7:
-	cmp listPtr, #sent7	;if we just printed sentence number 7
-	bne cntSnt8
-	cmp end, #1			;check if we out of time or entered to the sentence all the words
-	bne notEnd
-	mov #sent15, listPtr	;next sentence to print
-	jmp endAp
+    cmp listPtr, #sent7 ;if we just printed sentence number 7
+    bne cntSnt8
+    cmp end, #1         ;check if we out of time or entered to the sentence all the words
+    bne notEnd
+    mov #sent15, listPtr    ;next sentence to print
+    jmp endAp
 notEnd:
-	cmp wrdsLeft, #0
-	bne weHaveMoreWords
-    mov #1, end	
-	mov #sent14, listPtr	;next sentence to print
-	jmp endAp
+    cmp wrdsLeft, #0
+    bne weHaveMoreWords
+    mov #1, end 
+    mov #sent14, listPtr    ;next sentence to print
+    jmp endAp
 weHaveMoreWords:
-	mov #sent8, listPtr
-	jmp endAp
+    mov #sent8, listPtr
+    jmp endAp
 cntSnt8:
-	cmp listPtr, #sent8	;if we just printed sentence number 8
-	bne	cntSnt9
-	jsr pc, time2string	;take timeLeft and turning it to a string
-	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    cmp listPtr, #sent8 ;if we just printed sentence number 8
+    bne cntSnt9
+    jsr pc, time2string ;take timeLeft and turning it to a string
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
     mov #0, afterWord
-	mov #sent9, listPtr	;next sentence to print
-	jmp endAp
+    mov #sent9, listPtr ;next sentence to print
+    jmp endAp
 cntSnt9:
-	cmp listPtr, #sent9	;if we just printed sentence number 9
-	bne	cntSnt10
-	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    cmp listPtr, #sent9 ;if we just printed sentence number 9
+    bne cntSnt10
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
     mov #0, afterWord
     br wait2KB
 cntSnt10:
-	cmp listPtr, #sent10	;if we just printed sentence number 10
-	bne	cntSnt11
-	mov #sent11, listPtr	;next sentence to print
-	mov #curWord, pointer	;we are going to print the current word now
-	mov #2, pStatus		;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    cmp listPtr, #sent10    ;if we just printed sentence number 10
+    bne cntSnt11
+    mov #sent11, listPtr    ;next sentence to print
+    mov #curWord, pointer   ;we are going to print the current word now
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
     mov #0, afterWord
-	jmp endAp
+    jmp endAp
 cntSnt11:
-	cmp listPtr, #sent11	;if we just printed sentence number 10
-	bne	cntSnt12
+    cmp listPtr, #sent11    ;if we just printed sentence number 10
+    bne cntSnt12
     mov #2, pStatus
     mov #1, status
     mov #2, afterWord
-	mov #curWord, pointer
+    mov #curWord, pointer
     br endAp
 cntSnt12:
-	cmp listPtr, #sent12	;if we just printed sentence number 10
-	bne	cntSnt13
-	mov #sent13, listPtr ;next sentence to print
-	;need to clarify with tamuz what to do here
+    cmp listPtr, #sent12    ;if we just printed sentence number 10
+    bne cntSnt13
+    mov #sent13, listPtr ;next sentence to print
+    ;need to clarify with tamuz what to do here
     mov #2, pStatus
     br endAp
 cntSnt13:
-	cmp listPtr, #sent13	;if we just printed sentence number 10
-	bne	cntSnt14
-	mov #2, status
+    cmp listPtr, #sent13    ;if we just printed sentence number 10
+    bne cntSnt14
+    mov #2, status
     mov #'?, blinker
     mov #1, blink
     mov #1, pStatus
     br wait2KB
 cntSnt14:
-	cmp listPtr, #sent14	;if we just printed sentence number 10
-	bne	cntSnt15
-	mov #sent6, listPtr 	;next sentence to print
-	mov #1, end			;the program end (out of time or out of words)
+    cmp listPtr, #sent14    ;if we just printed sentence number 10
+    bne cntSnt15
+    mov #sent6, listPtr     ;next sentence to print
+    mov #1, end         ;the program end (out of time or out of words)
     br endAp
 cntSnt15:
-	cmp listPtr, #sent15	;if we just printed sentence number 10
-	bne	cntSnt16
+    cmp listPtr, #sent15    ;if we just printed sentence number 10
+    bne cntSnt16
     mov #main, sp
-	halt
+    halt
 cntSnt16:
-	cmp listPtr, #sent16	;if we just printed sentence number 10
-	bne	cntSnt17
-	mov #sent6, listPtr	;next sentence to print
-	mov #1, end			;we are out of time
+    cmp listPtr, #sent16    ;if we just printed sentence number 10
+    bne cntSnt17
+    mov #sent6, listPtr ;next sentence to print
+    mov #1, end         ;we are out of time
     br endAp
 cntSnt17:
-	cmp listPtr, #sent17	;if we just printed sentence number 10
-	bne	cntSnt18
+    cmp listPtr, #sent17    ;if we just printed sentence number 10
+    bne cntSnt18
     br endAp
 cntSnt18:
     mov #sent11, listPtr    ;next sentence to print
@@ -327,44 +333,44 @@ cntSnt18:
     mov #0, afterWord
     jmp endAp
 wait2KB:
-	bis #101, @#tks		;turn on the keyboard
-	bic #100, @#tps		;turn off the printer
+    bis #101, @#tks     ;turn on the keyboard
+    bic #100, @#tps     ;turn off the printer
     br endAp2
-endAp:	
+endAp:  
     mov #0, @#tpb
 endAp2:
-	mov listPtr, sentPtr	;set the sentPtr and the listPtr at the same place
-	rts pc
+    mov listPtr, sentPtr    ;set the sentPtr and the listPtr at the same place
+    rts pc
 
 ;turn the number in timeLeft to string as pointer point to it. 
-;we do it in string as the place there available	
+;we do it in string as the place there available    
 time2string:
-	mov r0, -(sp)		;save registers
-	mov r1, -(sp)
-	mov r2, -(sp)
-	mov #string, r2		;r2 serve as printer
-	add #6, r2	
-	movb #'@, (r2)		;we start by putting @ in the end of the word
-	mov timeLeft, r0		;r0 will give us the the number and then divide imself by 10 6 times
+    mov r0, -(sp)       ;save registers
+    mov r1, -(sp)
+    mov r2, -(sp)
+    mov #string, r2     ;r2 serve as printer
+    add #6, r2  
+    movb #'@, (r2)      ;we start by putting @ in the end of the word
+    mov timeLeft, r0        ;r0 will give us the the number and then divide imself by 10 6 times
 t2sLoop:
-	sub #1, r2			;we move backward because we extrapulate the LSB each time
-	mov r0, r1			;r1 wil turn into the LSB string each time
-	asr r0				;division by 10 of the number
-	asr r0
-	asr r0
-	bic #177770, r1		;mask the leave only the LSB
-	cmp r1, #0			;if the LSB is not 0 we move the pointer to r2, because we want to start the printing in the MSB (not in the potential zero sequence that come before)
-	beq contin5		
-	mov r2, pointer
+    sub #1, r2          ;we move backward because we extrapulate the LSB each time
+    mov r0, r1          ;r1 wil turn into the LSB string each time
+    asr r0              ;division by 10 of the number
+    asr r0
+    asr r0
+    bic #177770, r1     ;mask the leave only the LSB
+    cmp r1, #0          ;if the LSB is not 0 we move the pointer to r2, because we want to start the printing in the MSB (not in the potential zero sequence that come before)
+    beq contin5     
+    mov r2, pointer
 contin5:
-	add #60, r1			;we turn the LSB to ascii 
-	movb r1, (r2)		;print the ascii letter 
-	cmp r2, #string	   ;if we havn't arrived yet to #string (which means we didn't run 6 times, the number of octal digits in a word).
-	bne t2sLoop	
-	mov (sp)+, r2	;we ran 6 times. we finished. now we restore registers and stack
-	mov (sp)+, r1
-	mov (sp)+, r0
-	rts pc
+    add #60, r1         ;we turn the LSB to ascii 
+    movb r1, (r2)       ;print the ascii letter 
+    cmp r2, #string    ;if we havn't arrived yet to #string (which means we didn't run 6 times, the number of octal digits in a word).
+    bne t2sLoop 
+    mov (sp)+, r2   ;we ran 6 times. we finished. now we restore registers and stack
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rts pc
 
 
 ;Gets the address of `sentNN` in linkage register r5 and sets both listPtr and sentPtr to there.
@@ -373,7 +379,7 @@ chooseSent:
     mov (r5)+, sentPtr
     rts r5
 
-	
+    
 ; Tests whether given string is prefix for sentence.
 ;inputs: r0=setence, r1=prefix, r2=max number of typos.
 ;output: r1= 1 if valid prefix, 0 otherwise.
@@ -668,7 +674,7 @@ compWord:
     mov r2, -(sp)
     mov r3, -(sp)
     mov r5, -(sp)
-    bic #100, cls   ;todo is this ok to do this to avoid bug? also there's the inverse action at the end of this function
+    bic #100, cls   ;turn off the clock for a moment to avoid race conditions.
     tst (r4)        ;if parameter=1 then skip first word
     bne compLoop
     mov @pTerm, r0
@@ -803,7 +809,6 @@ keyboard:
     jmp @(r1)   ;go to kbdSubrouties[status]
 
     kbdEcho:
-        ; mov r0, curLetter
         mov #1, pStatus
         mov r0, @#tpb
         inc @#tks
@@ -949,123 +954,63 @@ retryRoutine:
 ;Performs wrdsLeft-- . If wrds depleted then set `end`.
 endWord:
     dec wrdsLeft
- ;    bne endEndWord
- ;    inc end
- ; endEndWord:
     rts pc
 
 
-ieMask:         .word 100
 pInput:         .word curWord
 userSentPtr:    .word sentence  ;points to the current end of the user-curWord sentence.
 maxTypos:       .word 0
 newWord:        .word 0         ;set when word inserted into dict. reset when done sorting.
 pTerm:          .word 0         ;points to the next term that we test against the curWord
 firstSuggest:   .word 0         ;set when looking for completion for the first time for a given prefix
-firstWord:      .word 1
+firstWord:      .word 1         ;cleared after the user entered at least 1 word to the sentence.
 afterWord:      .word 0         ;after finish printing word: 0 = print sentence, 1 = KB on & blink last character, 2 = KB on
 
 .even
-strT:           .ascii <\> @>
+strT:           .ascii <\> @>   ;a string containing the '>' sign followed by a space.
 .even
 kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
 
-	
-backspace:		.byte 10
-charT:			.byte 76   ;= '>'
-space:			.byte 40
+;ASCII Values
+backspace:      .byte 10
+charT:          .byte 76   ;= '>'
+space:          .byte 40
 .even
 
-busy:			.word 0
-sentPtr: 		.word 0
-listPtr:			.word 0
-status:			.word 0 
-pStatus:			.word 0  ;1=blink. 2=word. 3=sentence
-end:				.word 0
-wrdsLeft:		.word 0
-timeLeft:		.word 0
-curWord:			.blkw MAX_INPUT
-curLetter:		.word 0
-enterString:    .ascii <\n\r>
-string:			.blkw 60.
-pointer:			.word 0
-quantiSecond: 	.word 0
-backStt:			.word 0
-blink:              .word 0
-blinker:            .word 0
-sentence:			.blkw 750
+sentPtr:        .word 0     ;points to the next character to print.
+listPtr:        .word 0     ;points to beginning of message to print (see sentXX, below).
+status:         .word 0     ;keyboard input status. enumeration according to kbdSubrouties, above.
+pStatus:        .word 0     ;printer status enumeration: 1=blink. 2=word. 3=sentence
+end:            .word 0     ;set when the program should end.
+wrdsLeft:       .word 0
+timeLeft:       .word 0
+curWord:        .blkw MAX_INPUT ;will hold input from user
+enterString:    .ascii <\n\r>   ;string with the newline combination
+string:         .blkw 60.   ;will hold string that needs to be printed.
+pointer:        .word 0     ;points to a char in `string`.
+quantiSecond:   .word 0     ;counts clock ticks.
+backStt:        .word 0     ;enumeration: 0=inactive, 1=insert backspace, 2=insert space, 3=insert backspace and finish.
+blink:          .word 0     ;set when the last printed char should blink.
+blinker:        .word 0     ;when blink!=0, this should contain the blinking character.
+sentence:       .blkw 750   ;will hold the user's input sentence.
 
 
-
-sent1: .ascii	<Please enter length of the message:\n\r@> 
-sent2: .ascii	<\n\rPlease enter number of seconds to finish the message:\n\r@> 
-sent3: .ascii	<\n\rYou can start to write your message.\n\r@> 
-sent4: .ascii	<Don't worry we'll assist you!\n\r\> @> 
-sent5: .ascii	< was added to the message!\n\r@> 
-sent6: .ascii	<The message is: @>
-sent7: .ascii	<.\n\r@> 
-sent8: .ascii	<Time left: @>
-sent9: .ascii	< seconds\n\r\n\r\> @> 
-sent10: .ascii	<\n\rSorry @>
-sent11: .ascii	< not in our dictionary!\n\r\> @> 
-sent12: .ascii	<\n\rDo you mean @>
-sent13: .ascii	< y/n?@> 
-sent14: .ascii	<\n\rThank you!\n\r@> 
-sent15: .ascii	<Bye Bye!@>
-sent16: .ascii	<\n\rSorry Time is up!\n\r@> 
+;list of messages that will be printed to the user.
+sent1: .ascii   <Please enter length of the message:\n\r@> 
+sent2: .ascii   <\n\rPlease enter number of seconds to finish the message:\n\r@> 
+sent3: .ascii   <\n\rYou can start to write your message.\n\r@> 
+sent4: .ascii   <Don't worry we'll assist you!\n\r\> @> 
+sent5: .ascii   < was added to the message!\n\r@> 
+sent6: .ascii   <The message is: @>
+sent7: .ascii   <.\n\r@> 
+sent8: .ascii   <Time left: @>
+sent9: .ascii   < seconds\n\r\n\r\> @> 
+sent10: .ascii  <\n\rSorry @>
+sent11: .ascii  < not in our dictionary!\n\r\> @> 
+sent12: .ascii  <\n\rDo you mean @>
+sent13: .ascii  < y/n?@> 
+sent14: .ascii  <\n\rThank you!\n\r@> 
+sent15: .ascii  <Bye Bye!@>
+sent16: .ascii  <\n\rSorry Time is up!\n\r@> 
 sent17: .ascii  < has no other suggestions in our dictionary!\n\r\> @> 
 sent18: .ascii  <\n\rSorry @>
-	
-
-    
-.=torg + 12000
-rate:   .word 1000      ;todo remove
-
-X:				.word 1
-
-Dict:
-node1:		.word str1, node2
-node2:		.word str2, node3
-node3:		.word str3, node4
-node4:		.word str4, node5
-node5:		.word str5, node6
-node6:		.word str6, node7
-node7:		.word str7, node8
-node8:		.word str8, node9
-node9:		.word str9, node10
-node10:		.word str10, 0
-
-str1:			.ascii	<go@>
-str2:			.ascii	<hook@>
-str3:			.ascii	<robe@>
-str4:			.ascii	<room@>
-str5:			.ascii	<rose@>
-.even
-str6:		.blkw 5
-str7:		.blkw 5
-str8:		.blkw 5
-str9:		.blkw 5
-str10:		.blkw 5
-
-ExpectedDic:
-_node1:		.word _str1, _node2
-_node2:		.word _str2, _node3
-_node3:		.word _str3, _node4
-_node4:		.word _str4, _node5
-_node5:		.word _str5, _node6
-_node6:		.word _str6, _node7
-_node7:		.word _str7, _node8
-_node8:		.word _str8, _node9
-_node9:		.word _str9, _node10
-_node10:	.word _str10, 0
-
-_str1:		.ascii	<I@>
-_str2:		.ascii	<a@>
-_str3:		.ascii	<book@>
-_str4:		.ascii	<buy@>
-_str5:		.ascii	<go@>
-_str6:		.ascii	<hook@>
-_str7:		.ascii	<robe@>
-_str8:		.ascii	<room@>
-_str9:		.ascii	<rose@>
-_str10:		.ascii	<should@>

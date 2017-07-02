@@ -1,5 +1,1021 @@
-.=torg + 12000
+cls =   177546              
+tks =   177560          
+tkb =   177562          
+tps =   177564      
+tpb =   177566  
 
+TICKS   =   62  ;50. in decimali    
+LF      =   12                  
+CR      =   15
+BACKSPACE = 10
+ENTER   =   7412 ;LF + CR 00001111 00001100
+MAX_INPUT = 60.  ;max size for a single input from user (e.g. one word-string)
+
+. = torg + 1000
+
+main:          
+    mov #main, sp   ;start the stack    
+    mov #printer, @#20 ; iot trap initialization
+    mov #200, @#22
+    mov #printer,   @#64    ;register printer vector    
+    mov #200,   @#66        
+    mov #keyboard,  @#60    ;register keyboard vector       
+    mov #200,   @#62            
+    mov #clock, @#100   ;register clock vector  
+    mov #300,   @#102   
+    mov #sent1, listPtr
+    mov #sent1, sentPtr
+    mov #100,   @#tps   ;turn on the printer
+    mov #Dict, -(sp)    ;sending NIL to the pointer of RevBubble
+    movb #'", sentence
+    movb #'", sentence+1
+    movb #'@, sentence+2
+    add #2, userSentPtr
+    iot
+    jsr pc, RevBubble
+
+;Recursively performs the reverse bubble-sort on Dict.
+RevBubble:
+    ;wait for a new node
+    cmp newWord, #1     ;when a new node arrives newWord go from 0 to 1
+    bne RevBubble
+    mov r0, -(sp)   ;save r0
+    mov @4(sp), r0
+    cmpb (r0), #0   ;check if the current node is NIL
+    beq rtnFRB  ;if so we return return from RevBubble
+    mov 4(sp), r0   ;we move the next node to the stack 
+    add #2, r0
+    mov (r0), -(sp)
+    jsr pc, RevBubble   ;we start all over again
+    cmp 4(sp), #Dict
+    beq gotToDict
+    mov r1, -(sp)   ;save r1
+    mov 6(sp), r0   ;mov current node to r0
+    mov 14(sp), r1  ;mov previous node to r1
+    jsr pc, isBigger    ;if previous node is bigger then the current one we swithch
+    cmp r0, #1
+    bne doneRB      ;else we stop and wait for a new node
+    mov 6(sp), r0   ;mov current node to r0
+    mov 14(sp), r1  ;mov previous node to r1
+    mov (r1), -(sp) ;swipe word adresses  
+    mov (r0), (r1)  
+    mov (sp), (r0)
+    tst (sp)+
+    mov (sp)+, r1   ;restore r1
+    br rtnFRB       ;go forward to the next node
+endRB:
+    mov (sp)+, r1   ;restore the stack 
+    mov (sp)+, r0
+rtnFRB:
+    mov (sp)+, r0   ;rstore r0 and the stack
+    mov (sp)+, (sp) ;continue to restore the stack upon returning
+    rts pc
+gotToDict:          ;imitate regular return from doneRB
+    mov r1, -(sp)
+doneRB:
+    mov (sp)+, r1
+    mov (sp)+, r0
+    mov #0, newWord     ;returning newWord to 0
+    br RevBubble
+
+;check if the word in r1 bigger then the word in r2. if so return 1 in r0 else 0
+isBigger:
+    mov (r0), r0
+    mov (r1), r1
+startIB:
+    cmpb (r1), #'@      ;if (r1) is @ then the word in r1 is not bigger
+    beq noNeedStch
+    cmpb (r1), (r0)     ;cmp the current letters
+    bgt needSwithch     ;if the letter in r1 bigger the in r0 then the word in r1 is bigger and we switch
+    cmpb (r1)+, (r0)+   ;cmp the current letters and advance them
+    beq startIB         ;if the letter in r1 equal to r0 we advance and start over
+    br noNeedStch           ;start again
+needSwithch:
+    mov #1, r0          ;return 1
+    rts pc
+noNeedStch:             ;return 0
+    mov #0, r0
+    rts pc
+    
+
+;clock interrupt. decreases timeLeft every second and sends sent16 for printing if timeLeft=0.
+;also causes a character to blink if needed.
+clock:
+    add #1, quantiSecond        ;every 50 intervals reset the variable and decrese the time that we have left
+    cmp blink, #0
+    beq contClk
+    cmp quantiSecond, #1
+    beq changeB
+contClk:
+    cmp quantiSecond, rate
+    bne contin1
+    mov #0, quantiSecond
+    sub #1, timeLeft
+contin1:                    ;if we ran out of time, we print the end message and stop
+    cmp timeLeft, #0
+    bne contin2
+    bic #101, @#tks
+    bis #100, @#tps
+    clr @#cls
+    mov #sent16, listPtr
+    mov #sent16, sentPtr
+    mov #3, pStatus
+    mov #0, @#tpb
+contin2:        ;return from clock
+    rti
+changeB:
+    cmp blink, #1
+    bne addB
+removeB:
+    bic #1, @#tks
+    mov #1, backStt
+    mov #0, @#tpb
+    bis #100, @#tps
+    inc blink
+    br contClk
+addB:
+    movb blinker, @#tpb
+    bis #100, @#tps
+    bis #1, @#tks
+    dec blink
+    br contClk
+    
+;printer interrupt handler. Updates the program's status according to current status.
+printer:    
+    cmp backStt, #0
+    beq contin6
+backS1: 
+    cmp backStt, #1
+    bne backS2
+    movb backspace, @#tpb
+    add #1, backStt
+    br endP
+backS2:
+    cmp backStt, #2
+    bne backS3
+    mov space, @#tpb
+    add #1, backStt
+    br endP
+backS3:
+    mov backspace, @#tpb
+    mov #0, backStt
+    bis #101, @#tks
+    br endP
+contin6:
+    cmp pStatus, #1     ;if we want to blink
+    bne contin3
+    br endP
+contin3:
+    cmp pStatus, #2     ;if we want to print a word in string (time left or the last word entered by the user)
+    bne contin4
+    cmpb @pointer, #'@  ;if we reached the end of the word we reset the pointer to string 
+    beq endP1
+    movb @pointer, @#tpb    ;we print the current letter
+    movb @pointer, blinker  ;the last printed character will blink (if needed)
+    add #1, pointer     ;and advance the pointer
+    br endP
+contin4:                ;the default option- we want to print a sentence
+    cmpb @sentPtr, #'@  ;if we reached the end of the sentence we call adPtr 
+    beq endP2
+    movb @sentPtr, @#tpb    ;we print the current letter
+    add #1, sentPtr     ;and advance the pointer
+    ; bis #100, @#tps
+    br endP
+endP2:
+    jsr pc, adPtr
+    bis #100, @#tps
+    rti
+endP1:  ; restet the pointer to string
+    mov #string, pointer
+    mov #0, @#tpb
+    cmp afterWord, #1
+    beq blinkOn
+    cmp afterWord, #2
+    beq wait2KB2
+    mov #3, pStatus
+endP:   ;return from printer interrupt
+    bis #100, @#tps
+    rti
+blinkOn:
+    mov #1, blink
+    mov #1, pStatus
+wait2KB2:
+    bis #101, @#tks
+    bic #100, @#tps
+    rti
+
+;called when `printer` finishes printing one of the pre-made messages. sets program status
+;according to current status.
+adPtr:
+    cmp listPtr, #sent1 ;if we just printed sentence number 1
+    bne cntSnt2         
+    mov #sent2, listPtr ;next sentence to print
+    mov #4, status      ;user enter length of sentence (in words)
+    jmp wait2KB         ;wait for the user to enter the data
+cntSnt2:
+    cmp listPtr, #sent2 ;if we just printed sentence number 2
+    bne cntSnt3
+    mov #sent3, listPtr ;next sentence to print
+    mov #5, status      ;user enters time of program    
+    jmp wait2KB         ;wait for the user to enter the data
+cntSnt3:
+    cmp listPtr, #sent3 ;if we just printed sentence number 3
+    bne cntSnt4
+    mov #sent4, listPtr ;next sentence to print
+    movb #CR, @#tpb
+    jmp endAp
+cntSnt4:
+    cmp listPtr, #sent4 ;if we just printed sentence number 4
+    bne cntSnt5
+    mov #1, status      ;user writes a word
+    jmp wait2KB         ;wait for the user to enter the data
+cntSnt5:
+    cmp listPtr, #sent5 ;if we just printed sentence number 5
+    bne cntSnt6
+    mov #sent6, listPtr ;next sentence to print
+    mov #CR, @#tpb
+    jmp endAp
+cntSnt6:
+    cmp listPtr, #sent6 ;if we just printed sentence number 6
+    bne cntSnt7
+    mov #sent7, listPtr ;next sentence to print
+    mov #sentence, pointer  ;now we print the sentence
+    mov #' , @#tpb
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
+    jmp endAp
+cntSnt7:
+    cmp listPtr, #sent7 ;if we just printed sentence number 7
+    bne cntSnt8
+    cmp end, #1         ;check if we out of time or entered to the sentence all the words
+    bne notEnd
+    mov #sent15, listPtr    ;next sentence to print
+    jmp endAp
+notEnd:
+    cmp wrdsLeft, #0
+    bne weHaveMoreWords
+    mov #1, end 
+    mov #sent14, listPtr    ;next sentence to print
+    jmp endAp
+weHaveMoreWords:
+    mov #sent8, listPtr
+    jmp endAp
+cntSnt8:
+    cmp listPtr, #sent8 ;if we just printed sentence number 8
+    bne cntSnt9
+    jsr pc, time2string ;take timeLeft and turning it to a string
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
+    mov #sent9, listPtr ;next sentence to print
+    jmp endAp
+cntSnt9:
+    cmp listPtr, #sent9 ;if we just printed sentence number 9
+    bne cntSnt10
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
+    br wait2KB
+cntSnt10:
+    cmp listPtr, #sent10    ;if we just printed sentence number 10
+    bne cntSnt11
+    mov #sent11, listPtr    ;next sentence to print
+    mov #curWord, pointer   ;we are going to print the current word now
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
+    jmp endAp
+cntSnt11:
+    cmp listPtr, #sent11    ;if we just printed sentence number 10
+    bne cntSnt12
+    mov #2, pStatus
+    mov #1, status
+    mov #2, afterWord
+    mov #curWord, pointer
+    br endAp
+cntSnt12:
+    cmp listPtr, #sent12    ;if we just printed sentence number 10
+    bne cntSnt13
+    mov #sent13, listPtr ;next sentence to print
+    ;need to clarify with tamuz what to do here
+    mov #2, pStatus
+    br endAp
+cntSnt13:
+    cmp listPtr, #sent13    ;if we just printed sentence number 10
+    bne cntSnt14
+    mov #2, status
+    mov #'?, blinker
+    mov #1, blink
+    mov #1, pStatus
+    br wait2KB
+cntSnt14:
+    cmp listPtr, #sent14    ;if we just printed sentence number 10
+    bne cntSnt15
+    mov #sent6, listPtr     ;next sentence to print
+    mov #1, end         ;the program end (out of time or out of words)
+    br endAp
+cntSnt15:
+    cmp listPtr, #sent15    ;if we just printed sentence number 10
+    bne cntSnt16
+    mov #main, sp
+    halt
+cntSnt16:
+    cmp listPtr, #sent16    ;if we just printed sentence number 10
+    bne cntSnt17
+    mov #sent6, listPtr ;next sentence to print
+    mov #1, end         ;we are out of time
+    br endAp
+cntSnt17:
+    cmp listPtr, #sent17    ;if we just printed sentence number 10
+    bne cntSnt18
+    br endAp
+cntSnt18:
+    mov #sent11, listPtr    ;next sentence to print
+    mov #curWord, pointer   ;we are going to print the current word now
+    mov #2, pStatus     ;now the printer is on "printing a word" mode (for time left, current word or the senence that the user entered so far)
+    mov #0, afterWord
+    jmp endAp
+wait2KB:
+    bis #101, @#tks     ;turn on the keyboard
+    bic #100, @#tps     ;turn off the printer
+    br endAp2
+endAp:  
+    mov #0, @#tpb
+endAp2:
+    mov listPtr, sentPtr    ;set the sentPtr and the listPtr at the same place
+    rts pc
+
+;turn the number in timeLeft to string as pointer point to it. 
+;we do it in string as the place there available    
+time2string:
+    mov r0, -(sp)       ;save registers
+    mov r1, -(sp)
+    mov r2, -(sp)
+    mov #string, r2     ;r2 serve as printer
+    add #6, r2  
+    movb #'@, (r2)      ;we start by putting @ in the end of the word
+    mov timeLeft, r0        ;r0 will give us the the number and then divide imself by 10 6 times
+t2sLoop:
+    sub #1, r2          ;we move backward because we extrapulate the LSB each time
+    mov r0, r1          ;r1 wil turn into the LSB string each time
+    asr r0              ;division by 10 of the number
+    asr r0
+    asr r0
+    bic #177770, r1     ;mask the leave only the LSB
+    cmp r1, #0          ;if the LSB is not 0 we move the pointer to r2, because we want to start the printing in the MSB (not in the potential zero sequence that come before)
+    beq contin5     
+    mov r2, pointer
+contin5:
+    add #60, r1         ;we turn the LSB to ascii 
+    movb r1, (r2)       ;print the ascii letter 
+    cmp r2, #string    ;if we havn't arrived yet to #string (which means we didn't run 6 times, the number of octal digits in a word).
+    bne t2sLoop 
+    mov (sp)+, r2   ;we ran 6 times. we finished. now we restore registers and stack
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rts pc
+
+
+;Gets the address of `sentNN` in linkage register r5 and sets both listPtr and sentPtr to there.
+chooseSent:
+    mov (r5), listPtr
+    mov (r5)+, sentPtr
+    rts r5
+
+    
+; Tests whether given string is prefix for sentence.
+;inputs: r0=setence, r1=prefix, r2=max number of typos.
+;output: r1= 1 if valid prefix, 0 otherwise.
+dictPrefix:
+    mov r5, -(sp)
+    mov r1, -(sp)   ;saving the prefix address
+    mov r0, -(sp)   ;saving the word address
+    mov r2, -(sp)   ;saving X
+    mov r3, -(sp)   ;backing up the registers
+    mov r4, -(sp)
+
+    ;we add to the stack X time '1'.
+    ;every '1' is a potential typo (when 1 represent the kind of typo).
+    ;we want to examine each time a different combination of typos.
+    ;we start by assuming every typo is from the first kind ('1').
+    mov r2, r5  ;r5 will forever hold the maxTypos limit
+    mov r2, r4  ;we put 2X into r4
+    add r2, r4
+    cmp r2, #0  ;if X = 0 ,no need to push typo combination to stack
+    beq continue
+    mov r2, r3  ;loop for X times. push typo combination to stack
+    stackETypes:
+        mov #1, -(sp)
+        sob r3, stackETypes
+    continue:
+    mov #2, -(sp)
+    runLetters:
+        cmpb #'@, (r1)      ;reached end of prefix (success)
+        beq success1
+        cmpb #'@, (r0)      ;reached end of word (probably failure)
+        beq wordEnded
+        jsr pc, chkLetters  ;compare current letter between prefix & word.
+        cmp (sp), #0          ;if the "prefix" is not really a prefix to the word (even with X mistakes).
+        beq failure1
+        br runLetters   ;we go to the next letter.
+ success1:   ;found match
+    tst r5
+    beq success2
+    cmp r2, r5      ;if we got 0 typos when we expect for more, then fail
+    beq failure1
+ success2:
+    mov #1, r1
+    br end1
+ failure1:   ;return failure
+    mov #0, r1
+    br end1
+ wordEnded:    ;check if we can spare more typos
+    tst r2
+    beq failure3
+    check:  ;chech if we have more typos to spare then characters left in prefix (success)
+        tstb (r1)+
+        cmpb (r1), #'@
+        beq success1
+        sob r2, check
+ ;failure. now we try again with differnt typo type combination (advance with nextType)
+ failure3:
+    ;if X=0 then we have failed
+    cmp r4, #0
+    beq failure1
+    ;nextType build by assuming 2 more functions were called before it. so we imitate the situation.
+    cmp -(sp), -(sp)
+    jsr pc, nextType
+    cmp (sp)+, (sp)+    ;imitate return from 2 functions (to protect the stack)
+    ;if nextType could not advance the typo combination no longer, then we failed
+    cmp (sp), #0
+    beq failure1
+    br runLetters
+ end1:   ;we have 6 + X local variables in the stack. we get rid off them. and restore the registers
+    add #2, sp
+    add r4, sp
+    mov (sp)+, r4
+    mov (sp)+, r3
+    mov (sp)+, r2
+    mov (sp)+, r0
+    mov (sp)+, r5
+    tst (sp)+
+    rts pc
+
+    chkLetters:   ;comparing the current letters of the prefix and the word.
+        cmpb (r0), (r1)
+        bne callChk   ;not equal.
+        cmpb (r0)+, (r1)+   ;go to testing the next letters.
+        rts pc
+    callChk:
+        cmp r4, #0  ;check if X=0, if so we failed.
+        beq failure4
+        jsr pc, chkTypo
+        rts pc
+    failure4:   ;announcing failure in the stack an go back
+        mov #0, 2(sp)
+        rts pc
+
+    chkTypo:   ;check if we got more typos to spare
+        cmp r2, #0     ;check if we got more typos to spare
+        bne callAct         ;if we have then continue testing
+    rstTypos:   ;otherwise reset the "typos left" counter back to X
+        add r4, sp
+        mov 12(sp), r2
+        sub r4, sp
+        jsr pc, nextType    ;advance the typos combination
+        rts pc
+    callAct:                ;program found a typo and keeps testing
+        sub #1, r2  ;now we have one less typos to spare
+
+    ;advance the letters of the string and the term accourding to the type of typo we assume the string has.
+    actTypo:    ;check what kind of typo we're cheking right now and act accordingly
+        add r2, sp  ;we mov to r3 the type of typo we are checking right now.
+        add r2, sp
+        mov 6(sp), r3
+        sub r2, sp
+        sub r2, sp
+        cmp r3, #1   ;letter got changed.
+        beq type1
+        cmp r3, #2   ;letter got deleted.
+        beq type2
+        cmp r3, #3   ;letter added by mistake.
+        beq type3
+    type1:
+        cmpb (r0)+, (r1)+   ;move to the next letter in the string and in the term.
+        rts pc
+    type2:
+        tstb (r1)+   ;move to the next letter in the prefix.
+        rts pc
+    type3:
+        tstb (r0)+   ;move to the next letter in the word.
+        rts pc
+
+    nextType:   ;advance the type of typos combination. if we got to the end, send failure
+        add r4, sp  ;we put X into r3, when r3 go to zero we know we are at the start of the "typo type" combination
+        mov 14(sp), r3
+        sub r4, sp
+        mov #0, r4  ;represent how deep we continue in the stack, so we know how much to come back
+        add #10, sp ;we scan the typos type from the end
+        loop1:
+            cmp (sp), #3    ;if the type is 3
+            beq case3
+        caseNot3:   ;advance the type and return
+            add #1, (sp)    ;advance the type
+            sub r4, sp  ;return with success ('1')
+            tst -(sp)
+            mov #1, (sp)
+            sub #6, sp
+            add r3, r4  ;restoring r4 to 2X
+            add r3, r4
+            add r4, sp  ;restoring the start adress of the "word" to r0 and the "prefix" to r1
+            mov 16(sp), r0
+            mov 20(sp), r1
+            sub r4, sp
+            rts pc
+        case3:  ;turn to 1 and continue to the next one
+            tstb -(r3)  ;we are one step closer to the start
+            cmp r3, 0   ;if we are at the start of the typo combination
+            beq failure2
+            mov #1, (sp)    ;turn type back to 1
+            cmp (sp)+, (r4)+    ;go to the next type, and increase r4 (how much we need to go back with the stack pointer)
+            br loop1
+    failure2:   ;return with failure ('0')
+        tst (r4)+   ;restoring r4 to 2X
+        sub r4, sp
+        mov #0, (sp)    ;loading failure ('0') in output
+        sub #6, sp
+        rts pc
+
+
+;Get `adrs` in linkage=r1. Get number-string stored at {curWord..pInput} and store it as
+;integer in `adrs`. Also resets pInput = #input.
+str2Num:
+    mov r0, -(sp)
+    mov r2, -(sp)
+    mov r3, -(sp)
+    mov r4, -(sp)
+    mov r5, -(sp)
+    mov (r1)+, r0   ;r0 = `adrs`
+    mov #curWord, r5  ;r5 is iterator
+    clr r2          ;r2 = single char (to convert into decimal digit)
+    clr r3          ;r3 = output number
+    mov #10., r4
+    str2NumLoop:
+        movb (r5)+, r2
+        sub #'0, r2
+        ash #3, r3      ;shift r3 digits to the left (as octal)
+        add r2, r3      ;insert r2-digit as last digit of r3
+        cmp r5, pInput
+        bne str2NumLoop
+    mov #curWord, pInput
+    mov r3, (r0)
+    mov (sp)+, r5
+    mov (sp)+, r4
+    mov (sp)+, r3
+    mov (sp)+, r2
+    mov (sp)+, r0
+    rts r1
+
+
+;Stack: Address of source string (that ends with @).
+;Inline: Address of destination string,
+;       Control word: if 0-bit is set then copy the '@' also,
+;                     if 1-bit is set then add single-quotes before and after.
+;Link. reg: r5
+copyStr:
+    mov r0, -(sp)
+    mov r1, -(sp)
+    mov r2, -(sp)
+    mov r3, -(sp)
+    mov 12(sp), r0      ;source word
+    mov (r5)+, r1       ;dest word
+    mov (r5)+, r2
+    mov r2, r3
+    bic #6, r2          ;r2 = boolean: copy '@'
+    asr r3              ;r3 = boolean: add single-quotes to word
+    tst r3
+    beq copyStrLoop
+    movb #'', (r1)+
+    copyStrLoop:
+        cmpb (r0), #'@
+        beq copyStrFin
+        movb (r0)+, (r1)+
+        br copyStrLoop
+ copyStrFin:
+    tst r3
+    beq copyStrAt
+    movb #'', (r1)+
+ copyStrAt:
+    tst r2
+    beq copyStrEnd
+    movb #'@, (r1)+
+ copyStrEnd:
+    mov (sp)+, r3
+    mov (sp)+, r2
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rts r5
+
+
+;takes the @-terminated string at `curWord`, appends it to the end of `sentence` and
+;appends it at the end of the dictionary.
+pushWord:
+    mov r0, -(sp)
+    mov r1, -(sp)   ;dict iterator
+    mov r2, -(sp)
+    mov #Dict, r1
+    findDictEnd:
+        tstb @(r1)           ;break if at end of dict
+        beq endFindDictEnd
+        add #2, r1
+        mov (r1), r1
+        br findDictEnd
+ endFindDictEnd:     ;now r1 points to beginning of empty string at end of dict
+    mov #curWord, r0          ;curWord string iterator
+    mov userSentPtr, r2    ;output sentence iterator
+    mov (r1), r1           ;dict term insertion iterator
+    dec r2
+    tst firstWord
+    bne pushLoop
+    movb #' , (r2)+
+    pushLoop:
+        movb (r0), (r1)+
+        movb (r0), (r2)+
+        cmpb (r0)+, #'@
+        bne pushLoop
+    movb #'", -(r2) ;add space at end of sentence
+    inc r2
+    movb #'@, (r2)
+    mov r2, userSentPtr ;set userSentPtr to the '@' at the end of the sentence
+    mov #1, newWord     ;indicates new word in dictionary
+    mov (sp)+, r2
+    mov (sp)+, r1
+    mov (sp)+, r0
+    clr firstWord
+    rts pc
+
+
+;adds a quotes-sign at the end of `sentence` and increments userSentPtr until it points to
+;the '@' at the end of `sentence`.
+appendQuote:
+    inc userSentPtr
+    cmpb @userSentPtr, #'@
+    bne appendQuote
+    movb #'", @userSentPtr
+    inc userSentPtr
+    movb #'@, @userSentPtr
+    rts pc
+
+
+;Suggest next word completion. Iterates the dictionary starting at `pTerm` and suggests
+;completions up to `maxTypos` typos. If dict is depleted then restart with maxTypos+1.
+;If maxTypos > X then send failure message.
+;Linkage reg = r4. If (r4)=1 then skips the first term.
+compWord:
+    mov r0, -(sp)
+    mov r1, -(sp)
+    mov r2, -(sp)
+    mov r3, -(sp)
+    mov r5, -(sp)
+    bic #100, cls   ;turn off the clock for a moment to avoid race conditions.
+    tst (r4)        ;if parameter=1 then skip first word
+    bne compLoop
+    mov @pTerm, r0
+    mov #curWord, r1
+    mov maxTypos, r2
+    jsr pc, dictPrefix          ;returns 0/1 in r1
+    tst r1
+    bne compEndLoop
+    compLoop:
+        add #2, pTerm
+        mov @pTerm, pTerm       ;pTerm->next()
+        mov @pTerm, r1
+        tstb (r1)               ;if empty string (end of dict)
+        bne notFinDict
+        finDict:
+            inc maxTypos
+            mov #Dict, pTerm        ;restart from beginning of dict
+            cmp maxTypos, X
+            bhi compFail
+        notFinDict:
+        mov @pTerm, r0
+        mov #curWord, r1
+        mov maxTypos, r2
+        jsr pc, dictPrefix      ;returns 0/1 in r1
+        tst r1
+        beq compLoop
+    compEndLoop:        ;pTerm points to term
+    clr firstSuggest
+    tst maxTypos
+    beq comp0Typos
+    compWithTypos:
+        mov #3, pStatus     ;print "do you mean '<word>'? y/n"
+        mov #0, afterWord
+        jsr r5, chooseSent
+        .word sent12
+        mov @pTerm, -(sp)
+        jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=True, add@=True)
+        .word string
+        .word 3
+        tst (sp)+
+        mov #string, pointer
+        mov #2, status      ;status = y/n
+        br compEnd
+    comp0Typos:
+        mov #2, pStatus     ;just print the suggested word
+        mov #1, afterWord
+        mov #strT, -(sp)
+        jsr r5, copyStr
+        .word string
+        .word 0
+        mov @pTerm, (sp)
+        jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=False, add@=True)
+        .word string+2
+        .word 1
+        tst (sp)+
+        mov #enterString, pointer
+        mov #3, status      ;status = enter / spacebar
+        br compEnd
+    compFail:
+    jsr r5, chooseSent
+    .word sent18
+    tst firstSuggest
+    beq compF2
+    jsr r5, chooseSent
+    .word sent10
+ compF2:
+    mov #3, pStatus
+    mov #curWord, -(sp)
+    jsr r5, copyStr         ;copyStr(&curWord, &string, addQuotes=True, add@=True)
+    .word string            ;(prints the user's curWord in the message)
+    .word 3
+    tst (sp)+
+ compEnd:
+    tst (r4)+
+    bis #100, cls
+    mov (sp)+, r5
+    mov (sp)+, r3
+    mov (sp)+, r2
+    mov (sp)+, r1
+    mov (sp)+, r0
+    rts r4
+
+
+;User accepted suggestion. Add word to sentence.
+sugAccept:
+    dec userSentPtr
+    tst firstWord       ;if it's not the first word then add space before it
+    bne sugFirstWord
+    movb #' , @userSentPtr
+    inc userSentPtr
+ sugFirstWord:
+    clr firstWord
+    mov @pTerm, -(sp)
+    mov userSentPtr, 4(pc)
+    jsr r5, copyStr     ;copyStr(<selected term>, <end of sentence>, addQuotes=False, add@=True)
+    .word 0, 1
+    jsr r5, copyStr     ;copyStr(<selected term>, <printout>, addQuotes=True, add@=True)
+    .word string, 3
+    tst (sp)+
+    mov #curWord, pInput  ;reset curWord pointer
+    mov #1, status          ;status = enter next word
+    jsr pc, appendQuote
+    jsr pc, endWord
+    mov #2, pStatus         ;print the given word to the user
+    mov #enterString, pointer
+    mov #0, afterWord
+    mov #sent5, listPtr
+    mov #sent5, sentPtr
+    rts pc
+
+;User declined suggestion. Suggest next word.
+sugDecline:           ;user pressed enter ("no")
+    jsr r4, compWord
+    .word 1
+    rts pc
+
+
+;handle keyboard interrupt
+keyboard:
+    mov r0, -(sp)
+    mov r1, -(sp)
+    mov r4, -(sp)
+    mov r5, -(sp)
+    mov #0, blink
+    mov tkb, r0
+    cmpb r0, #BACKSPACE
+    beq kbdBackspace
+    mov status, r1
+    dec r1
+    asl r1
+    add #kbdSubrouties, r1
+    jmp @(r1)   ;go to kbdSubrouties[status]
+
+    kbdEcho:
+        mov #1, pStatus
+        mov r0, @#tpb
+        inc @#tks
+        br kbdEnd
+    enablePrint:
+        bic #101, @#tks     ;keyboard IE=0  ;todo remove for testing
+        ; bis #100, @#tps     ;printer IE=1
+        iot
+    kbdEnd:
+        mov (sp)+, r5
+        mov (sp)+, r4
+        mov (sp)+, r1
+        mov (sp)+, r0
+        rti
+    kbdIgnore:
+        inc @#tks
+        br kbdEnd
+
+    kbdBackspace:
+        cmp pInput, #curWord  ;if we're on the first char of curWord then ignore
+        beq kbdEnd
+        dec pInput          ;delete last char in `curWord`
+        mov #1, pStatus
+        mov #1, backStt    ;otherwise, start the backspace procedure
+        jmp enablePrint
+
+    kbdWord:
+        cmp r0, #'!
+        beq kbdAutocomp
+        cmp r0, #'      ;space
+        beq kbdFinWord
+        cmp r0, #'.
+        beq kbdFinSentence  ;Wooohooooo!
+        movb r0, @pInput
+        inc pInput
+        jmp kbdEcho
+
+    kbdYn:          ;get y/n from user
+        cmp #'y, r0     ;user pressed y
+        beq kbdAccept
+        cmp #'n, r0     ;user pressed n
+        beq kbdDecline
+        cmp #'!, r0     ;user pressed !
+        beq kbdRetry
+        br kbdIgnore       ;ignore other curWord
+
+    kbd0Typos:      ;get enter / spacebar from user
+        cmp #' , r0     ;user pressed space
+        beq kbdAccept
+        cmp #CR, r0     ;user pressed enter
+        beq kbdDecline
+        cmp #'!, r0     ;user pressed !
+        beq kbdRetry
+        jmp kbdIgnore       ;ignore other curWord
+
+    kbdAccept:
+        jsr pc, sugAccept
+        jmp enablePrint
+    kbdDecline:
+        jsr pc, sugDecline
+        jmp enablePrint
+    kbdRetry:
+        jsr pc, retryRoutine
+        mov #1, status
+        jmp enablePrint
+
+    kbdTimeLeft:
+    kbdWrdsLeft:
+        cmp r0, #CR
+        beq kbdFinWrdsLeft
+        movb r0, @pInput
+        inc pInput
+        jmp kbdEcho
+    kbdFinWrdsLeft:
+            jsr r1, str2Num
+            .word wrdsLeft
+            mov #timeLeft, -10(pc)
+            inc status
+            ; mov #sent2, listPtr
+            mov #3, pStatus
+            cmp status, #6  ;if user has just inserted timeLeft
+            blt enablePrint
+            mov #1, status  ;then go to status 1 (read words from user)
+            mov #100, @#cls         ;and start the countdown
+            jmp enablePrint
+
+    kbdAutocomp:            ;user pressed '!'
+            clr maxTypos        ;begin by searching 0-typos prefix
+            mov #Dict, pTerm    ;start from beginning of dict
+            mov #1, firstSuggest
+            movb #'@, @pInput    ;append @ at end of curWord string
+            jsr r4, compWord
+            .word 0
+            jmp enablePrint
+
+    kbdFinWord:         ;if user pressed space
+            movb #'@, @pInput   ;end word with a @
+            jsr pc, pushWord    ;append word at end of sentence and insert it to dictionary
+            mov #2, pStatus     ;set print status = print word
+            mov #0, afterWord
+            mov #enterString, pointer
+            mov #sent5, listPtr
+            mov #sent5, sentPtr
+            mov #curWord, -(sp)
+            jsr r5, copyStr     ;copyStr(&curWord, &string, addQuotes=True, add@=True)
+            .word string
+            .word 3
+            tst (sp)+
+            mov #curWord, pInput  ;reset pInput to beginning of curWord space.
+            jsr pc, endWord
+            jmp enablePrint
+    kbdFinSentence:
+            mov #sent14, listPtr   ;print ending message.
+            mov #sent14, sentPtr
+            dec userSentPtr
+            movb #'", @userSentPtr
+            inc userSentPtr
+            movb #'@, @userSentPtr
+            mov r0, @#tpb
+            mov #3, pStatus
+            jmp kbdEnd
+
+
+retryRoutine:
+    mov r5, -(sp)
+    mov #2, pStatus     ;just print the suggested word
+    mov #1, afterWord
+    mov #strT, -(sp)
+    jsr r5, copyStr
+    .word string
+    .word 0
+    mov #curWord, (sp)
+    jsr r5, copyStr     ;copyStr(&pTerm, &string, addQuotes=False, add@=True)
+    .word string+2
+    .word 1
+    tst (sp)+
+    mov #enterString, pointer
+    mov #3, status      ;status = enter / spacebar
+    mov (sp)+, r5
+    rts pc
+
+
+;Performs wrdsLeft-- . If wrds depleted then set `end`.
+endWord:
+    dec wrdsLeft
+    rts pc
+
+
+pInput:         .word curWord
+userSentPtr:    .word sentence  ;points to the current end of the user-curWord sentence.
+maxTypos:       .word 0
+newWord:        .word 0         ;set when word inserted into dict. reset when done sorting.
+pTerm:          .word 0         ;points to the next term that we test against the curWord
+firstSuggest:   .word 0         ;set when looking for completion for the first time for a given prefix
+firstWord:      .word 1         ;cleared after the user entered at least 1 word to the sentence.
+afterWord:      .word 0         ;after finish printing word: 0 = print sentence, 1 = KB on & blink last character, 2 = KB on
+
+.even
+strT:           .ascii <\> @>   ;a string containing the '>' sign followed by a space.
+.even
+kbdSubrouties:  .word kbdWord, kbdYn, kbd0Typos, kbdWrdsLeft, kbdTimeLeft
+
+;ASCII Values
+backspace:      .byte 10
+charT:          .byte 76   ;= '>'
+space:          .byte 40
+.even
+
+sentPtr:        .word 0     ;points to the next character to print.
+listPtr:        .word 0     ;points to beginning of message to print (see sentXX, below).
+status:         .word 0     ;keyboard input status. enumeration according to kbdSubrouties, above.
+pStatus:        .word 0     ;printer status enumeration: 1=blink. 2=word. 3=sentence
+end:            .word 0     ;set when the program should end.
+wrdsLeft:       .word 0
+timeLeft:       .word 0
+curWord:        .blkw MAX_INPUT ;will hold input from user
+enterString:    .ascii <\n\r>   ;string with the newline combination
+string:         .blkw 60.   ;will hold string that needs to be printed.
+pointer:        .word 0     ;points to a char in `string`.
+quantiSecond:   .word 0     ;counts clock ticks.
+backStt:        .word 0     ;enumeration: 0=inactive, 1=insert backspace, 2=insert space, 3=insert backspace and finish.
+blink:          .word 0     ;set when the last printed char should blink.
+blinker:        .word 0     ;when blink!=0, this should contain the blinking character.
+sentence:       .blkw 750   ;will hold the user's input sentence.
+
+
+;list of messages that will be printed to the user.
+sent1: .ascii   <Please enter length of the message:\n\r@> 
+sent2: .ascii   <\n\rPlease enter number of seconds to finish the message:\n\r@> 
+sent3: .ascii   <\n\rYou can start to write your message.\n\r@> 
+sent4: .ascii   <Don't worry we'll assist you!\n\r\> @> 
+sent5: .ascii   < was added to the message!\n\r@> 
+sent6: .ascii   <The message is: @>
+sent7: .ascii   <.\n\r@> 
+sent8: .ascii   <Time left: @>
+sent9: .ascii   < seconds\n\r\n\r\> @> 
+sent10: .ascii  <\n\rSorry @>
+sent11: .ascii  < not in our dictionary!\n\r\> @> 
+sent12: .ascii  <\n\rDo you mean @>
+sent13: .ascii  < y/n?@> 
+sent14: .ascii  <\n\rThank you!\n\r@> 
+sent15: .ascii  <Bye Bye!@>
+sent16: .ascii  <\n\rSorry Time is up!\n\r@> 
+sent17: .ascii  < has no other suggestions in our dictionary!\n\r\> @> 
+sent18: .ascii  <\n\rSorry @>
+.=torg + 12000
+rate: .word 500
 X:				.word 1
 
 Dict:

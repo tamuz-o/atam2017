@@ -26,7 +26,7 @@ main:
 	mov #sent1, listPtr
 	mov #sent1, sentPtr
 	mov	#100,	@#tps	;turn on the printer
-	mov #0, -(sp)	;sending NIL to the pointer of RevBubble
+	mov #Dict, -(sp)	;sending NIL to the pointer of RevBubble
     movb #'", sentence
     movb #'", sentence+1
     movb #'@, sentence+2
@@ -35,52 +35,68 @@ main:
 	jsr pc, RevBubble
 
 RevBubble:
-	;wait for a new node
-	cmp newWord, #1		;when a new node arrives newWord go from 0 to 1
-	bne RevBubble
-	mov #0, newWord		;returning newWord to 0
-	mov r0, -(sp)	;save r0
-	cmp 4(sp), #0	;check if the current node is NIL
-	beq rtnFRB	;if so we return return from RevBubble
-	mov 4(sp), r0	;we move the next node to the stack 
-	add #2, r0
-	mov (r0), -(sp)
-	jsr pc, RevBubble	;we start all over again
-	mov r1, -(sp)	;save r1
-	mov 6(sp), r0	;mov current node to r0
-	mov 14(sp), r1	;mov previous node to r1
-	jsr pc, isBigger	;if previous node is bigger then the current one we swithch
-	cmp r0, #1
-	bne RevBubble		;else we stop and wait for a new node
-	mov 6(sp), r0	;mov current node to r0
-	mov 14(sp), r1	;mov previous node to r1
-	mov r1, -(sp)	;swipe word adresses  
-	mov (r0), (r1)	
-	mov @(sp), (r0)
-	tst (sp)+	
-	br rtnFRB		;go forward to the next node
+    ;wait for a new node
+    cmp newWord, #1     ;when a new node arrives newWord go from 0 to 1
+    bne RevBubble
+    mov r0, -(sp)   ;save r0
+    mov @4(sp), r0
+    cmpb (r0), #0   ;check if the current node is NIL
+    beq rtnFRB  ;if so we return return from RevBubble
+    mov 4(sp), r0   ;we move the next node to the stack 
+    add #2, r0
+    mov (r0), -(sp)
+    jsr pc, RevBubble   ;we start all over again
+    cmp 4(sp), #Dict
+    beq gotToDict
+    mov r1, -(sp)   ;save r1
+    mov 6(sp), r0   ;mov current node to r0
+    mov 14(sp), r1  ;mov previous node to r1
+    jsr pc, isBigger    ;if previous node is bigger then the current one we swithch
+    cmp r0, #1
+    bne doneRB      ;else we stop and wait for a new node
+    mov 6(sp), r0   ;mov current node to r0
+    mov 14(sp), r1  ;mov previous node to r1
+    mov (r1), -(sp) ;swipe word adresses  
+    mov (r0), (r1)  
+    mov (sp), (r0)
+    tst (sp)+
+    mov (sp)+, r1   ;restore r1
+    br rtnFRB       ;go forward to the next node
 endRB:
-	mov (sp)+, r1	;restore the stack 
-	mov (sp)+, r0
+    mov (sp)+, r1   ;restore the stack 
+    mov (sp)+, r0
 rtnFRB:
-	mov (sp)+, r0	;rstore r0 and the stack
-	mov (sp)+, (sp)	;continue to restore the stack upon returning
-	rts pc
+    mov (sp)+, r0   ;rstore r0 and the stack
+    mov (sp)+, (sp) ;continue to restore the stack upon returning
+    rts pc
+gotToDict:          ;imitate regular return from doneRB
+    mov r1, -(sp)
+doneRB:
+    mov (sp)+, r1
+    mov (sp)+, r0
+    mov #0, newWord     ;returning newWord to 0
+    br RevBubble
 
 ;check if the word in r1 bigger then the word in r2. if so return 1 in r0 else 0
-isBigger:	
-	cmpb (r1), #'@		;if (r1) is @ then the word in r1 is not bigger
-	beq noNeedStch
-	cmpb (r1)+, (r0)+	;cmp the current letters and advance them
-	bgt needSwithch		;if the letter in r1 bigger the in r0 then the word in r1 is bigger
-	br isBigger			;start again
+isBigger:
+    mov (r0), r0
+    mov (r1), r1
+startIB:
+    cmpb (r1), #'@      ;if (r1) is @ then the word in r1 is not bigger
+    beq noNeedStch
+    cmpb (r1), (r0)     ;cmp the current letters
+    bgt needSwithch     ;if the letter in r1 bigger the in r0 then the word in r1 is bigger and we switch
+    cmpb (r1)+, (r0)+   ;cmp the current letters and advance them
+    beq startIB         ;if the letter in r1 equal to r0 we advance and start over
+    br noNeedStch           ;start again
 needSwithch:
-	mov #1, r0			;return 1
-	rts pc
-noNeedStch:				;return 0
-	mov #0, r0
-	rts pc
+    mov #1, r0          ;return 1
+    rts pc
+noNeedStch:             ;return 0
+    mov #0, r0
+    rts pc
 	
+
 clock:
 	add #1, quantiSecond		;every 50 intervals reset the variable and decrese the time that we have left
     cmp blink, #0
@@ -265,7 +281,7 @@ cntSnt11:
 	bne	cntSnt12
     mov #2, pStatus
     mov #1, status
-    mov #2, afterWord       ;todo don't blink afterwards
+    mov #2, afterWord
 	mov #curWord, pointer
     br endAp
 cntSnt12:

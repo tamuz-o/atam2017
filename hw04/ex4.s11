@@ -308,6 +308,7 @@ cntSnt14:
 cntSnt15:
 	cmp listPtr, #sent15	;if we just printed sentence number 10
 	bne	cntSnt16
+    mov #main, sp
 	halt
 cntSnt16:
 	cmp listPtr, #sent16	;if we just printed sentence number 10
